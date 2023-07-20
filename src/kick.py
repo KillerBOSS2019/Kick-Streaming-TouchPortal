@@ -32,14 +32,17 @@ class Kick:
         self.cookie = {}
         self.retry_login = True
         self.ws_address = "wss://ws-us2.pusher.com/app/eb1d5f283081a78b932c?protocol=7&client=js&version=7.6.0&flash=false"
-        self.socket_id = 0
-        self.ws = websocket.WebSocketApp(self.ws_address, on_message=self.on_message, on_open=self.on_open, on_close=self.on_close, on_error=self.on_error)
+        self.ws = None
 
     def request(self, url, method="GET", data=None):
-        if method == "GET":
-            data = self.session.get(url, data=data, impersonate="chrome101")
-        elif method == "POST":
-            data = self.session.post(url, data=data, impersonate="chrome101")
+        try:
+            if method == "GET":
+                data = self.session.get(url, data=data, impersonate="chrome101")
+            elif method == "POST":
+                data = self.session.post(url, data=data, impersonate="chrome101")
+        except Exception as e:
+            print(f"Something went wrong in request with url:{url} method:{method} data:{data} error:{e}")
+            return None
         
         # print(data.headers)
 
@@ -153,8 +156,8 @@ class Kick:
             }
         self.ws.send(json.dumps(data))
 
-    def subscribe_live_stream(self, stream_id):
-        auth = self.broadcasting_auth(self.socket_id, f"private-livestream_{stream_id}")
+    def subscribe_live_stream(self, socket_id, stream_id):
+        auth = self.broadcasting_auth(socket_id, f"private-livestream_{stream_id}")
         auth = auth.json()
         data = {
             "event":
@@ -166,8 +169,8 @@ class Kick:
         }
         self.ws.send(json.dumps(data))
 
-    def unsubscribe_live_stream(self, stream_id):
-        auth = self.broadcasting_auth(self.socket_id, f"private-livestream_{stream_id}")
+    def unsubscribe_live_stream(self, socket_id, stream_id):
+        auth = self.broadcasting_auth(socket_id, f"private-livestream_{stream_id}")
         auth = auth.json()
 
         data = {
@@ -187,38 +190,9 @@ class Kick:
     def sendMessage(self, message):
         url = self.baseurl + "api/v2/messages/send/" + str(self.user_info["chatroom"]["id"])
         return self.request(url, data={"content": str(message), "type": "message"}, method="POST")
-    
-    def on_message(self, ws, message):
-        msg = json.loads(message)
-        msg_data = json.loads(msg["data"])
 
-        print(f"Message Received: {msg}")
-
-        match msg["event"]:
-            case "pusher:connection_established":
-                self.socket_id = msg_data["socket_id"]
-                # print(f"Socket ID: {self.socket_id}")
-                self.subscribe_to_channel()
-                self.subscribe_to_chatroom()
-                print(self.broadcasting_auth(self.socket_id, f"private-chatroom_13795564").text)
-            case "App\\Events\\StreamerIsLive":
-                print("Streamer is live")
-                self.subscribe_live_stream(msg_data["livestream"]["id"])
-            case "App\\Events\\StopStreamBroadcast":
-                print("Streamer is offline")
-                self.unsubscribe_live_stream(msg_data["livestream"]["id"])
-                
-
-    def on_error(self, ws, error):
-        print(f"Error: {error}")
-
-    def on_close(self, ws):
-        print("### closed ###")
-
-    def on_open(self, ws):
-        print("### open ###")
-
-    def connect_ws(self):
+    def connect_ws(self, on_message):
+        self.ws = websocket.WebSocketApp(self.ws_address, on_message=on_message)
         threading.Thread(target=self.ws.run_forever).start()
         
 # kick = Kick("email", "pass")

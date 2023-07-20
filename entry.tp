@@ -1,0 +1,111 @@
+{
+    "sdk": 6,
+    "version": 100,
+    "name": "Kick-Streaming",
+    "id": "com.github.killerboss2019.kicktp",
+    "configuration": {
+        "colorDark": "#15843e",
+        "colorLight": "#1ca950"
+    },
+    "plugin_start_cmd_windows": "%TP_PLUGIN_FOLDER%kick\\tp_kick.exe",
+    "categories": [
+        {
+            "id": "com.github.killerboss2019.kicktp.main",
+            "name": "Kick",
+            "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick.png",
+            "actions": [
+                {
+                    "id": "com.github.killerboss2019.kicktp.act.send_message",
+                    "name": "Send message",
+                    "prefix": "Kick - Chat",
+                    "type": "communicate",
+                    "format": "Send {$com.github.killerboss2019.kicktp.act.send_message.data.message$}",
+                    "tryInline": true,
+                    "hasHoldFunctionality": false,
+                    "data": [
+                        {
+                            "id": "com.github.killerboss2019.kicktp.act.send_message.data.message",
+                            "type": "text",
+                            "label": "Message to send to chat",
+                            "default": "Hello World!"
+                        }
+                    ]
+                }
+            ],
+            "states": [
+                {
+                    "id": "com.github.killerboss2019.kicktp.state.profile_name",
+                    "type": "text",
+                    "desc": "Kick Profile Name",
+                    "default": "",
+                    "parentGroup": "Kick Profile"
+                },
+                {
+                    "id": "com.github.killerboss2019.kicktp.state.profile_follower_count",
+                    "type": "text",
+                    "desc": "Kick Profile Follower Count",
+                    "default": "",
+                    "parentGroup": "Kick Profile"
+                },
+                {
+                    "id": "com.github.killerboss2019.kicktp.state.profile_bio",
+                    "type": "text",
+                    "desc": "Kick Profile Bio",
+                    "default": "",
+                    "parentGroup": "Kick Profile"
+                },
+                {
+                    "id": "com.github.killerboss2019.kicktp.state.streaming_status",
+                    "type": "text",
+                    "desc": "Kick is Live",
+                    "default": "False",
+                    "parentGroup": "Kick Streaming"
+                }
+            ],
+            "events": [],
+            "connectors": []
+        },
+        {
+            "id": "com.github.killerboss2019.kicktp.chat",
+            "name": "Kick - Chat",
+            "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick_chat.png",
+            "actions": [
+                {
+                    "id": "com.github.killerboss2019.kicktp.act.send_message",
+                    "name": "Send message",
+                    "prefix": "Kick - Chat",
+                    "type": "communicate",
+                    "format": "Send {$com.github.killerboss2019.kicktp.act.send_message.data.message$}",
+                    "tryInline": true,
+                    "hasHoldFunctionality": false,
+                    "data": [
+                        {
+                            "id": "com.github.killerboss2019.kicktp.act.send_message.data.message",
+                            "type": "text",
+                            "label": "Message to send to chat",
+                            "default": "Hello World!"
+                        }
+                    ]
+                }
+            ],
+            "states": [],
+            "events": [],
+            "connectors": []
+        }
+    ],
+    "settings": [
+        {
+            "name": "email",
+            "type": "text",
+            "default": "",
+            "readOnly": false
+        },
+        {
+            "name": "password",
+            "type": "text",
+            "default": "",
+            "isPassword": true,
+            "readOnly": false
+        }
+    ]
+}

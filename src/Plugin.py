@@ -83,9 +83,53 @@ class Plugin(Client):
         if actionid in self.registeredAction.keys():
             self.registeredAction[actionid](self, action_data)
 
+    def settingsRegister(name: str, type: str, default: str = "", maxLength: int = -1, isPassword: bool = False, minValue: int = -2147483647, maxValue: int = 2147483647, readOnly: bool = False):
+        frame = inspect.currentframe()
+
+        def decorator(func):
+            def wrapper(self, *args, **kwargs):
+                print("inside wrapper setting register")
+                if name in self.registeredSetting:
+                    raise Exception("Same settings exist already.")
+                self.registeredSetting[name] = func
+
+                setting = {}
+                argValue = self.getArgs(frame)
+                annotation = dict(signature(self.settingsRegister).parameters)
+                isVaildEntry = self.runErrorCheck(argValue, annotation)
+                if isVaildEntry:
+                    setting = {
+                        "name": argValue['name'],
+                        "type": argValue['type'],
+                        "default": argValue['default']
+                    }
+
+                    if argValue['type'] == "number":
+                        setting["minValue"] = argValue['minValue']
+                        setting["maxValue"] = argValue['maxValue']
+
+                    if argValue['maxLength'] != -1:
+                        setting["maxLength"] = argValue['maxLength']
+                    
+                    if argValue['isPassword']:
+                        setting["isPassword"] = argValue['isPassword']
+                    
+                    if argValue['readOnly']:
+                        setting["readOnly"] = argValue['readOnly']
+                else:
+                    raise TypeError("Please check the error above.")
+                self.TP_PLUGIN_SETTINGS[len(
+                    self.TP_PLUGIN_SETTINGS.keys())] = setting
+                
+            wrapper.wrapped = True
+            return wrapper
+
+        return decorator
+
     def actionRegister(category:str, id:str, name:str, prefix:str, type:str="communicate", executionType:str="", execution_cmd:str="", description:str="", tryInline:bool=True, format:str="", hasHoldFunctionality:bool=False):
         def decorator(func):
             def wrapper(self, *args, **kwargs):
+                print("inside wrapper action register")
                 new_id = self.PLUGIN_ID + ".act." + id
                 if new_id in self.registeredAction:
                     raise Exception("Action ID cannot be same")
@@ -126,6 +170,7 @@ class Plugin(Client):
 
                 self.TP_PLUGIN_ACTIONS[new_id] = action
 
+            print(wrapper)
             wrapper.wrapped = True
             return wrapper
 
@@ -162,7 +207,7 @@ class Plugin(Client):
             if 'data' not in func.data:
                 func.data['data'] = []
 
-            if any(id, type, label, default) is None:
+            if any([id, type, label, default]) is None:
                 raise Exception("id, type, label, default is required")
             if not (type.lower() in ["text", "number", "switch", "choice"]):
                 raise Exception("type must be text, number, switch, choice")
@@ -204,64 +249,11 @@ class Plugin(Client):
 
         return decorator
 
-
-    def settingRegister(name: str, type: str, default: str = "", maxLength: int = -1, isPassword: bool = False, minValue: int = -2147483647, maxValue: int = 2147483647, readOnly: bool = False):
-        frame = inspect.currentframe()
-
-        def decorator(func):
-            def wrapper(self, *args, **kwargs):
-                if name in self.registeredSetting:
-                    raise Exception("Same settings exist already.")
-                self.registeredSetting[name] = func
-
-                setting = {}
-                argValue = self.getArgs(frame)
-                annotation = dict(signature(self.settingRegister).parameters)
-                isVaildEntry = self.runErrorCheck(argValue, annotation)
-                if isVaildEntry:
-                    setting = {
-                        "name": argValue['name'],
-                        "type": argValue['type'],
-                        "default": argValue['default']
-                    }
-
-                    if argValue['type'] == "number":
-                        setting["minValue"] = argValue['minValue']
-                        setting["maxValue"] = argValue['maxValue']
-
-                    if argValue['maxLength'] != -1:
-                        setting["maxLength"] = argValue['maxLength']
-                    
-                    if argValue['isPassword']:
-                        setting["isPassword"] = argValue['isPassword']
-                    
-                    if argValue['readOnly']:
-                        setting["readOnly"] = argValue['readOnly']
-                else:
-                    raise TypeError("Please check the error above.")
-                self.TP_PLUGIN_SETTINGS[len(
-                    self.TP_PLUGIN_SETTINGS.keys())] = setting
-                
-            wrapper.wrapped = True
-            return wrapper
-
-        return decorator
-  
-    def getRegisteredMethod(self):
-        wrapped_methods = []
-        for method_name in dir(self):
-            attr = getattr(self, method_name)
-            if callable(attr) and hasattr(attr, "wrapped"):
-                wrapped_methods.append(attr)
-
-        return wrapped_methods
-
     def handleSettings(self, settings):
         for setting in settings:
             key = list(setting.keys())[0]
             if self.settings.get(key) != setting.get(key):
-                # self.registeredSetting.get(key)(self, setting.get(key))
-                ...
+                self.registeredSetting.get(key)(self, setting.get(key))
 
         settings = {list(settings[i])[0]: list(settings[i].values())[
             0] for i in range(len(settings))}
@@ -272,10 +264,10 @@ class Plugin(Client):
         self.handleSettings(data['values'])
 
     def _onConnect(self, data):
+        self.handleSettings(data.get("settings"))
+
         if self.callback['onConnect']:
             self.callback['onConnect'](self, data)
-
-        self.handleSettings(data.get("settings"))
 
     def onStart():
         def decorator(func):
@@ -285,6 +277,17 @@ class Plugin(Client):
             wrapper.wrapped = True
             return wrapper
         return decorator
+    
+    def getRegisteredMethod(self):
+        wrapped_methods = []
+        for method_name in dir(self):
+            attr = getattr(self, method_name)
+            if method_name == "email" or method_name == "password" or method_name == "my_setting_handler":
+                print(method_name, callable(attr))
+            if callable(attr) and hasattr(attr, "wrapped"):
+                wrapped_methods.append(attr)
+
+        return wrapped_methods
 
     def startRegister(self):
         for action in self.getRegisteredMethod():
