@@ -88,7 +88,6 @@ class Plugin(Client):
 
         def decorator(func):
             def wrapper(self, *args, **kwargs):
-                print("inside wrapper setting register")
                 if name in self.registeredSetting:
                     raise Exception("Same settings exist already.")
                 self.registeredSetting[name] = func
@@ -129,7 +128,6 @@ class Plugin(Client):
     def actionRegister(category:str, id:str, name:str, prefix:str, type:str="communicate", executionType:str="", execution_cmd:str="", description:str="", tryInline:bool=True, format:str="", hasHoldFunctionality:bool=False):
         def decorator(func):
             def wrapper(self, *args, **kwargs):
-                print("inside wrapper action register")
                 new_id = self.PLUGIN_ID + ".act." + id
                 if new_id in self.registeredAction:
                     raise Exception("Action ID cannot be same")
@@ -153,6 +151,9 @@ class Plugin(Client):
                     action['format'] = formats
                     action['data'] = action_data
                 
+                if isinstance(category, str) and category != "":
+                    action['category'] = category
+
                 if isinstance(tryInline, bool):
                     action['tryInline'] = tryInline
                 
@@ -168,9 +169,8 @@ class Plugin(Client):
                 if isinstance(description, str) and description != "":
                     action['description'] = description
 
-                self.TP_PLUGIN_ACTIONS[new_id] = action
+                self.TP_PLUGIN_ACTIONS[id] = action
 
-            print(wrapper)
             wrapper.wrapped = True
             return wrapper
 
@@ -282,8 +282,6 @@ class Plugin(Client):
         wrapped_methods = []
         for method_name in dir(self):
             attr = getattr(self, method_name)
-            if method_name == "email" or method_name == "password" or method_name == "my_setting_handler":
-                print(method_name, callable(attr))
             if callable(attr) and hasattr(attr, "wrapped"):
                 wrapped_methods.append(attr)
 
