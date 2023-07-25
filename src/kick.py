@@ -23,7 +23,7 @@ class Kick:
         "X-Xsrf-Token": ""
     })
 
-    def __init__(self, email, password):
+    def __init__(self, email, password, logger):
         self.email = email
         self.password = password
         self.user_data = {}
@@ -33,6 +33,7 @@ class Kick:
         self.retry_login = True
         self.ws_address = "wss://ws-us2.pusher.com/app/eb1d5f283081a78b932c?protocol=7&client=js&version=7.6.0&flash=false"
         self.ws = None
+        self.logger = logger
 
     def generate_cookie(self):
         if self.cookie:
@@ -53,25 +54,31 @@ class Kick:
             
             self.session.headers.update({"Cookie": self.generate_cookie()})
             if "XSRF-TOKEN" in self.cookie:
+                self.logger.debug(f"XSRF-TOKEN: {self.cookie['XSRF-TOKEN']}")
                 self.session.headers.update({"X-XSRF-TOKEN": self.cookie["XSRF-TOKEN"]})
 
     def request(self, url, method="GET", data=None):
         try:
-            print(f"Request -> {method} {url} {data}")
+            self.logger.info(f"Request --> method:{method} url:{url}")
+            self.logger.debug(f"Request --> {method} {url} {data}")
             if method == "GET":
                 data = self.session.get(url, data=data, impersonate="chrome101")
             elif method == "POST":
                 data = self.session.post(url, data=data, impersonate="chrome101")
             elif method == "PUT":
                 data = self.session.put(url, data=data, impersonate="chrome101")
-            print(f"Request <-- {data.status_code} {data.text}")
+            self.logger.debug(f"Request <-- {data.status_code} {data.text}")
+            self.logger.info(f"Request <-- method:{method} url:{url}")
+
+            if data.status_code >= 403:
+                print("something went wrong")
+                data = {}
         except Exception as e:
-            print(f"Something went wrong in request with url:{url} method:{method} data:{data} error:{e}")
+            self.logger.info(f"Something went wrong in request with url:{url} method:{method} data:{data} error:{e}")
             return None
         
         self.set_headers(data.headers)
-        # print(data.headers)
-            # print(self.session.headers)
+        self.logger.debug(f"Setting header {self.session.headers}")
 
         return data
     
@@ -123,7 +130,7 @@ class Kick:
                 self._saveToken(token)
                 self.save_cookie()
             else:
-                print(f"Incorrect login credentials")
+                self.logger.info(f"Incorrect login credentials")
                 self.retry_login = False
 
         if token:
@@ -197,13 +204,15 @@ class Kick:
             }
         self.ws.send(json.dumps(data))
 
-    def subscribe(self, socket_id, event):
-        auth = self.broadcasting_auth(socket_id, event)
-        auth = auth.json()
+    def subscribe(self, event, socket_id=0, auth_required=True):
+        auth = {"auth": ""}
+        if auth_required:
+            auth = self.broadcasting_auth(socket_id, event)
+            auth = auth.json()
         data = {
             "event":
                 "pusher:subscribe",
-                "data": {"channel": event, "auth": auth["auth"]}
+                "data": {"auth": auth["auth"], "channel": event}
         }
         self.ws.send(json.dumps(data))
 
@@ -246,9 +255,13 @@ class Kick:
         data = {"advanced_bot_protection": option}
         return self.request(url, data=data, method="PUT")
 
-    def connect_ws(self, on_message):
-        self.ws = websocket.WebSocketApp(self.ws_address, on_message=on_message)
+    def connect_ws(self, on_message, on_close):
+        self.ws = websocket.WebSocketApp(self.ws_address, on_message=on_message, on_close=on_close)
         threading.Thread(target=self.ws.run_forever).start()
+
+    def deleteMessage(self, message_id):
+        url = self.baseurl + "api/v2/messages/" + str(message_id)
+        return self.request(url, method="DELETE")
         
 # kick = Kick("email", "pass")
 # kick.login()
