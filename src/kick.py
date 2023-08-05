@@ -3,18 +3,70 @@ import websocket
 import json
 import re
 import threading
+import urllib.parse
+from tkinter import *
+import base64
+from TouchPortalAPI.logger import Logger
 
-class Kick:
-    baseurl = "https://kick.com/"
+logger = Logger(__name__)
+
+class Kick2FA:
+    def __init__(self) -> None:
+        self.root = Tk()
+        self.root.title("Kick 2FA")
+        self.root.geometry("300x100")
+        self.root.resizable(False, False)
+        self.authCode = ""
+
+        label = Label(self.root, text="Enter your 2FA code")
+        label.pack()
+        self.entry = Entry(self.root)
+        self.entry.pack()
+        button = Button(self.root, text="Submit", command=self.submit)
+        button.pack()
+    
+    def submit(self):
+        self.authCode = self.entry.get()
+        self.root.destroy()
+
+    def getPasscode(self):
+        self.root.mainloop()
+        return self.authCode
+    
+class KickSaveSession:
+    def __init__(self) -> None:
+        pass
+    
+    def _saveToken(self, headers):
+        with open("token.txt", "w") as f:
+            f.write(base64.b64encode(json.dumps(headers).encode("utf-8")).decode("utf-8"))
+
+    def _loadToken(self) -> dict:
+        try:
+            with open("token.txt", "r") as f:
+                file = f.read()
+                return json.loads(base64.b64decode(file.encode("utf-8")).decode("utf-8"))
+        except FileNotFoundError:
+            return {}
+    
+    def save_cookie(self, cookie):
+        token = self._loadToken()
+        if token.get("Authorization", None):
+            token["cookie"] = cookie
+            self._saveToken(token)
+
+class KickBase(KickSaveSession):
     session = requests.Session()
     session.headers.update({
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
         # "accept": "application/json, text/plain, */*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Content-Type": "application/json",
         "accept-language": "en-US",
-        "sec-ch-ua": "\"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"114\", \"Brave\";v=\"114\"",
+        "sec-ch-ua": '"Not.A/Brand";v="8", "Chromium";v="114", "Brave";v="114"',
         "sec-ch-ua-mobile": "?0",
         "Authorization": "Bearer null",
-        "sec-ch-ua-platform": "\"Windows\"",
+        "sec-ch-ua-platform": "Windows",
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
@@ -23,24 +75,16 @@ class Kick:
         "X-Xsrf-Token": ""
     })
 
-    def __init__(self, email, password, logger):
+    def __init__(self, email, password) -> None:
         self.email = email
         self.password = password
-        self.user_data = {}
-        self.user_info = {}
-        self.isLoggedin = False
-        self.cookie = {}
-        self.retry_login = True
-        self.ws_address = "wss://ws-us2.pusher.com/app/eb1d5f283081a78b932c?protocol=7&client=js&version=7.6.0&flash=false"
-        self.ws = None
-        self.logger = logger
+        self.cookie_jar = {}
 
     def generate_cookie(self):
-        if self.cookie:
-            cookie = "; ".join([f"{key}={value}" for key, value in self.cookie.items()])
+        if self.cookie_jar:
+            cookie = "; ".join([f"{key}={value}" for key, value in self.cookie_jar.items()])
             return cookie
         return ""
-        
 
     def set_headers(self, headers):
         if "set-cookie" in headers:
@@ -50,131 +94,106 @@ class Kick:
                 cookie_name = match[0]
                 cookie_value = match[1]
                 if not cookie_name in ["expires", "path", "domain"] and len(cookie_value) > 10:
-                    self.cookie[cookie_name] = cookie_value
-            
-            self.session.headers.update({"Cookie": self.generate_cookie()})
-            if "XSRF-TOKEN" in self.cookie:
-                self.logger.debug(f"XSRF-TOKEN: {self.cookie['XSRF-TOKEN']}")
-                self.session.headers.update({"X-XSRF-TOKEN": self.cookie["XSRF-TOKEN"]})
+                    self.cookie_jar[cookie_name] = cookie_value
+                    self.session.headers.update({"Cookie": self.generate_cookie()})
+                self.save_cookie(self.cookie_jar)
 
-    def request(self, url, method="GET", data=None):
-        try:
-            self.logger.info(f"Request --> method:{method} url:{url}")
-            self.logger.debug(f"Request --> {method} {url} {data}")
-            if method == "GET":
-                data = self.session.get(url, data=data, impersonate="chrome101")
-            elif method == "POST":
-                data = self.session.post(url, data=data, impersonate="chrome101")
-            elif method == "PUT":
-                data = self.session.put(url, data=data, impersonate="chrome101")
-            self.logger.debug(f"Request <-- {data.status_code} {data.text}")
-            self.logger.info(f"Request <-- method:{method} url:{url}")
+            if "XSRF-TOKEN" in self.cookie_jar:
+                self.session.headers.update({"X-XSRF-TOKEN": self.cookie_jar["XSRF-TOKEN"]})
+    
+    def is_success_status_code(self, status_code):
+        return 200 <= status_code < 300
 
-            if data.status_code >= 403:
-                print("something went wrong")
-                data = {}
-        except Exception as e:
-            self.logger.info(f"Something went wrong in request with url:{url} method:{method} data:{data} error:{e}")
-            return None
-        
-        self.set_headers(data.headers)
-        self.logger.debug(f"Setting header {self.session.headers}")
+    def request(self, url, method="GET", data=None, header=None):
+        print(f"Request --> method:{method} url:{url}")
+        headers = self.session.headers
+        if header:
+            headers.update(header)
+        if method == "GET":
+            data = self.session.get(url, data=data, impersonate="chrome101", headers=headers)
+        elif method == "POST":
+            data = self.session.post(url, data=data, impersonate="chrome101", headers=headers)
+        elif method == "PUT":
+            data = self.session.put(url, data=data, impersonate="chrome101", headers=headers)
+
+        if 200 <= data.status_code < 300:
+            # Update header with response header
+            self.set_headers(data.headers)
+            print(f"Request <-- method:{method} url:{url} status_code:{data.status_code}")
+        else:
+            print(f"Request <-- method:{method} url:{url} status_code:{data.status_code} error:{data.text}")
 
         return data
     
-    def _getToken(self):
-        url = self.baseurl + "kick-token-provider"
-        data = self.request(url)
-        return data
-    
-    def _saveToken(self, headers):
-        with open("token.json", "w") as f:
-            json.dump(headers, f)
+class KickLogin(KickBase):
+    BASE_URL = "https://kick.com/"
 
-    def _loadToken(self):
-        try:
-            with open("token.json", "r") as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return None
-        
-    def save_cookie(self):
+    def __init__(self, email, password) -> None:
+        super().__init__(email, password)
+
+    def getTokenProvider(self):
+        response = self.request(self.BASE_URL + "kick-token-provider", method="GET", header={"Content-Type": "application/x-www-form-urlencoded"})
+        if response.status_code == 200:
+            return response.json()
+        return None
+    
+    def loadSession(self):
         token = self._loadToken()
-        if token.get("Authorization", None):
-            token["cookie"] = self.cookie
-            self._saveToken(token)
-            
-    def _requestLogin(self):
-        token = self._getToken().json()
+        if token:
+            self.session.headers.update({"Authorization": f'Bearer {token["Authorization"]}'})
+            if token.get("cookie", None):
+                self.cookie_jar = token["cookie"]
+                self.session.headers.update({"Cookie": self.generate_cookie()})
+                self.session.headers.update({"X-XSRF-TOKEN": self.cookie_jar.get("XSRF-TOKEN", "")})
+
+    def isLoggedin(self):
+        url = self.BASE_URL + "api/v1/user"
+        data = self.request(url)
+        return data.json()
+
+    def login(self, authCode=None):
+        tokenProvider = self.getTokenProvider()
+        if not tokenProvider:
+            print("Failed to get token provider.")
+            return False
+
         data = {
             "email": self.email,
             "password": self.password,
             "isMobileRequest": True,
-            token["nameFieldName"]: "",
-            token["validFromFieldName"]: token["encryptedValidFrom"],
+            tokenProvider["nameFieldName"]: "",
+            tokenProvider["validFromFieldName"]: tokenProvider["encryptedValidFrom"],
         }
-        url = self.baseurl + "mobile/login"
-        data = self.request(url, data=data, method="POST")
-        
-        return data
 
-    def login(self):
-        token = self._loadToken()
-        is_login_requested = False
+        if authCode:
+            data["one_time_password"] = authCode
 
-        if not token or not token.get("Authorization", None):
-            is_login_requested = True
-            login = self._requestLogin()
-            if 200 <= login.status_code <= 299:
-                token = {"Authorization": login.json()["token"]}
-                self._saveToken(token)
-                self.save_cookie()
-            else:
-                self.logger.info(f"Incorrect login credentials")
-                self.retry_login = False
+        url = self.BASE_URL + "mobile/login"
+        response = self.request(url, method="POST", data=data)
 
-        if token:
-            self.session.headers["Authorization"] = "Bearer " + token["Authorization"]
-            if not is_login_requested:
-                self.cookie = token.get("cookie", {})
-                self.session.headers["Cookie"] = self.generate_cookie()
-                if "XSRF-TOKEN" in self.cookie:
-                    self.session.headers["X-XSRF-TOKEN"] = token["cookie"]["XSRF-TOKEN"]
-                
+        if response.status_code == 400 and (jsonResponse := response.json()):
+            if jsonResponse["2fa_required"]:
+                kick2fa = Kick2FA()
+                authCode = kick2fa.getPasscode()
 
-        user = self.getUser().json()
-
-        if user:
-            self.isLoggedin = True
-            self.user_data = user
-            self.user_info = self.getUserInfo().json()
+                return self.login(authCode=authCode)
+        elif self.is_success_status_code(response.status_code):
+            self.session.headers.update({"Authorization": f"Bearer {response.json()['token']}"})
+            self._saveToken({"Authorization": response.json()['token']})
             return True
+        
+        return False
+    
+class KickWebSockets():
+    WS_ADDRESS = "wss://ws-us2.pusher.com/app/eb1d5f283081a78b932c?protocol=7&client=js&version=7.6.0&flash=false"
 
-        if self.retry_login:
-            self.session.headers["Cookie"] = ""
-            self.session.headers["X-XSRF-TOKEN"] = ""
-            self.retry_login = False
-            self._saveToken({})
-            self.login()
-        else:
-            return False
-    
-    def getUser(self):
-        url = self.baseurl + "api/v1/user"
-        data = self.session.get(url, impersonate="chrome101")
-        return data
+    def __init__(self, onMessage, kick) -> None:
+        self.ws = websocket.WebSocketApp(self.WS_ADDRESS, on_message=onMessage, on_close=self.on_close, on_error=self.onError)
+        self.kick = kick
 
-    def getUserInfo(self):
-        url = self.baseurl + "api/v2/channels/" + self.user_data.get("username")
-        data = self.request(url)
-        return data
-    
-    def broadcasting_auth(self, socket_id, channel):
-        url = self.baseurl + "broadcasting/auth"
-        body = f"socket_id={socket_id}&channel_name={channel}"
-        data = self.request(url, method="POST", data=body)
-        return data
-    
+    def on_close(self, ws):
+        print(f"Ws closed. {ws}")
+
     def send_ping(self):
         data = {
             "event": "pusher:ping",
@@ -182,37 +201,11 @@ class Kick:
         }
         self.ws.send(json.dumps(data))
 
-    def subscribe_to_chatroom(self):
-        data = {
-            "event": 
-                "pusher:subscribe",
-                "data": {
-                    "auth": "",
-                    "channel": f"chatrooms.{self.user_info['chatroom']['id']}.v2"
-                }
-            }
-        self.ws.send(json.dumps(data))
-
-    def subscribe_to_channel(self):
-        data = {
-            "event": 
-                "pusher:subscribe",
-                "data": {
-                    "auth": "",
-                    "channel": f"channel.{self.user_info['chatroom']['channel_id']}"
-                }
-            }
-        self.ws.send(json.dumps(data))
-
-    def subscribe(self, event, socket_id=0, auth_required=True):
-        auth = {"auth": ""}
-        if auth_required:
-            auth = self.broadcasting_auth(socket_id, event)
-            auth = auth.json()
+    def subscribe(self, event, socket_id=0, auth=""):
         data = {
             "event":
                 "pusher:subscribe",
-                "data": {"auth": auth["auth"], "channel": event}
+                "data": {"auth": auth, "channel": event}
         }
         self.ws.send(json.dumps(data))
 
@@ -222,48 +215,46 @@ class Kick:
             "data": {"channel": event}
         }
         self.ws.send(json.dumps(data))
-    
-    def getMessages(self):
-        url = self.baseurl + "api/v2/channels/" + str(self.chatroom_id) + "/messages"
-        return self.session.get(url)
-    
-    def sendMessage(self, message):
-        url = self.baseurl + "api/v2/messages/send/" + str(self.user_info["chatroom"]["id"])
-        return self.request(url, data={"content": str(message), "type": "message"}, method="POST")
-    
-    def enable_slowmode(self, option, interval):
-        url = self.baseurl + "api/v2/channels/" + self.user_data.get("username") + "/chatroom"
-        data = {"slow_mode": option}
-        if option:
-            data["message_interval"] = interval
-        return self.request(url, data=data, method="PUT")
-    
-    def enable_followersmode(self, option, duration):
-        url = self.baseurl + "api/v2/channels/" + self.user_data.get("username") + "/chatroom"
-        data = {"followers_only": option}
-        if option:
-            data["following_min_duration"] = duration
-        return self.request(url, data=data, method="PUT")
-    
-    def emote_only(self, option):
-        url = self.baseurl + "api/v2/channels/" + self.user_data.get("username") + "/chatroom"
-        data = {"emote_only": option}
-        return self.request(url, data=data, method="PUT")
-    
-    def adv_antibot(self, option):
-        url = self.baseurl + "api/v2/channels/" + self.user_data.get("username") + "/chatroom"
-        data = {"advanced_bot_protection": option}
-        return self.request(url, data=data, method="PUT")
 
-    def connect_ws(self, on_message, on_close):
-        self.ws = websocket.WebSocketApp(self.ws_address, on_message=on_message, on_close=on_close)
-        threading.Thread(target=self.ws.run_forever).start()
+    def onError(self, ws, error):
+        logger.error(f"Error: {error}", exc_info=True)
 
-    def deleteMessage(self, message_id):
-        url = self.baseurl + "api/v2/messages/" + str(message_id)
-        return self.request(url, method="DELETE")
+    def run(self):
+        self.ws.run_forever()
+
+class Kick(KickLogin):
+    def __init__(self, email, password) -> None:
+        super().__init__(email, password)
+        self.isUserLoggedIn = False
+        self.username = ""
+
+    def handleLogin(self):
+        self.loadSession()
         
-# kick = Kick("email", "pass")
-# kick.login()
-# print(kick.user_info)
-# kick.connect_ws()
+        if self.isLoggedin():
+            self.isUserLoggedIn = True
+        else:
+            if self.login():
+                self.isUserLoggedIn = True
+
+        return self.isUserLoggedIn
+    
+    def broadcasting_auth(self, socket_id, channel):
+        url = self.BASE_URL + "broadcasting/auth"
+        body = f"socket_id={socket_id}&channel_name={channel}"
+        data = self.request(url, method="POST", data=body, header={"Content-Type": "application/x-www-form-urlencoded"})
+        return data
+    
+    def setData(self):
+        user_info = self.isLoggedin()
+        if (user_info):
+            self.username = user_info["username"]
+    
+    def getUserData(self):
+        url = self.BASE_URL + "api/v2/channels/" + self.username
+        data = self.request(url)
+        return data
+
+    def sendMessage(self, message):
+        url = self.BASE_URL + "api/v2/messages/send/" + str(self.user_info["chatroom"]["id"])
+        return self.request(url, data={"content": str(message), "type": "message"}, method="POST")

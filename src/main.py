@@ -1,4 +1,4 @@
-from kick import Kick
+from kick import Kick, KickWebSockets
 from Plugin import Plugin
 import json
 from time import sleep
@@ -9,7 +9,7 @@ from sys import exit
 from datetime import datetime
 
 class KickTP(Plugin):
-    __version__ = 60
+    __version__ = 70
 
     PLUGIN_ID = "com.github.killerboss2019.kicktp"
 
@@ -316,20 +316,20 @@ class KickTP(Plugin):
     def __init__(self):
         super().__init__(self.PLUGIN_ID, logFileName=self.TP_PLUGIN_INFO["name"] + ".log")
         self.add_listener(TYPES.onShutdown, self.on_tpclose)
+        self.add_listener(TYPES.onError, self.onError)
         self.update_thread = Thread(target=self.update_state)
-        self.kick = None
+        self.setLogLevel("DEBUG")
+        self.kick:Kick = None
+        self.kick_ws:KickWebSockets = None
         self.socket_id = 0
         self.email = ""
         self.password = ""
-        self.is_loggedin = False
         self.stream_time = None
-        self.setLogLevel("DEBUG")
         self.chatlength = 5
         self.chat_buffer = {}
         self.profile_updated = False
     
     def update_user_data(self, user_data):
-        # print(user_data)
         self.stateUpdate(self.TP_PLUGIN_STATES["profile_name"]["id"], user_data["user"]["username"])
         self.stateUpdate(self.TP_PLUGIN_STATES["profile_follower_count"]["id"], str(user_data["followers_count"]))
         self.stateUpdate(self.TP_PLUGIN_STATES["profile_bio"]["id"], user_data["user"]["bio"])
@@ -350,17 +350,43 @@ class KickTP(Plugin):
                 profile_pic = Tools.convertImage_to_base64(profile_pic, "Web")
             self.stateUpdate(self.TP_PLUGIN_STATES["profile_image"]["id"], profile_pic)
             self.profile_updated = True
+            self.log.info("profile image updated")
 
     def update_stream_info(self):
         self.log.info("updating stream info")
-        data = self.kick.getUserInfo()
+        data = self.kick.getUserData()
 
         if not data: return;
     
         data = data.json()
-        self.kick.user_info = data
         live_stream = data["livestream"]
         chatroom = data["chatroom"]
+        channel_users = data.get("channel_users", [])
+
+        for user in range(len(channel_users)):
+            self.createStateMany([
+                {
+                    "id": self.PLUGIN_ID + f".channelusers.{user}.username",
+                    "desc": f"Get channel user {channel_users[user]['user']['username']} username",
+                    "type": "text",
+                    "value": f"{channel_users[user]['user']['username']}",
+                    "parentGroup": "Channel Users",
+                },
+                {
+                    "id": self.PLUGIN_ID + f".channelusers.{user}.role",
+                    "desc": f"Get channel user {channel_users[user]['user']['username']} role",
+                    "type": "text",
+                    "value": f"{channel_users[user]['role']}",
+                    "parentGroup": "Channel Users",
+                },
+                {
+                    "id": self.PLUGIN_ID + f".channelusers.{user}.bio",
+                    "desc": f"Get channel user {channel_users[user]['user']['username']} bio",
+                    "type": "text",
+                    "value": f"{channel_users[user]['user']['bio']}",
+                    "parentGroup": "Channel Users",
+                },
+            ])
 
         if isinstance(live_stream, dict) and live_stream.get("is_live", False):
             self.stateUpdate(self.TP_PLUGIN_STATES["streaming_title"]["id"], live_stream["session_title"])
@@ -378,12 +404,16 @@ class KickTP(Plugin):
         self.stateUpdate(self.TP_PLUGIN_STATES["sub_mode_enabled"]["id"], str(chatroom["subscribers_mode"]))
 
     def sub_init_events(self):
-        self.kick.subscribe(event=f"channel.{self.kick.user_info['chatroom']['channel_id']}", auth_required=False)
-        self.kick.subscribe(event=f"chatrooms.{self.kick.user_info['chatroom']['id']}.v2", auth_required=False)
-        self.kick.subscribe(socket_id=self.socket_id, event=f"private-channel.{self.kick.user_info['id']}")
-        self.kick.subscribe(socket_id=self.socket_id, event=f"private-channel_{self.kick.user_info['id']}")
-        self.kick.subscribe(socket_id=self.socket_id, event=f"private-chatroom_{self.kick.user_info['chatroom']['id']}")
-        self.kick.subscribe(socket_id=self.socket_id, event=f"private-userfeed.{self.kick.user_info['user_id']}")
+        user_data = self.kick.getUserData()
+        # if not user_data.status_code == 200: return;
+        user_data = user_data.json()
+        self.kick_ws.subscribe(event=f"channel.{user_data['chatroom']['channel_id']}")
+        self.kick_ws.subscribe(event=f"chatrooms.{user_data['chatroom']['id']}.v2")
+        for event in [f"private-channel.{user_data['id']}", f"private-channel_{user_data['id']}",
+                      f"private-chatroom_{user_data['chatroom']['id']}", f"private-userfeed.{user_data['user_id']}"]:
+            auth = self.kick.broadcasting_auth(channel=event, socket_id=self.socket_id).json()["auth"]
+            self.kick_ws.subscribe(event=event, socket_id=self.socket_id, auth=auth)
+
 
     def update_chatroominfo(self, chatroom_info):
         self.stateUpdate(self.TP_PLUGIN_STATES["slow_mode_enabled"]["id"], str(chatroom_info["slow_mode"]["enabled"]))
@@ -461,7 +491,6 @@ class KickTP(Plugin):
             self.update_chat_state(1, message, username, badge_string)
 
     def on_message(self, ws, message):
-        print(message)
         msg = json.loads(message)
         msg_data = json.loads(msg["data"])
         self.log.info(f"WS Message: {msg}")
@@ -469,7 +498,6 @@ class KickTP(Plugin):
         match msg["event"]:
             case "pusher:connection_established":
                 self.socket_id = msg_data["socket_id"]
-                self.log.info(f"Socket ID: {self.socket_id}")
                 self.create_chatbuffer()
                 self.kick.session.headers.update({"X-Socket-Id": self.socket_id})
                 self.sub_init_events()
@@ -478,16 +506,23 @@ class KickTP(Plugin):
                 self.stateUpdate(self.TP_PLUGIN_STATES["streaming_status"]["id"], "True")
 
             case "App\\Events\\StartStream":
-                self.kick.subscribe(socket_id=self.socket_id, event=f"private-livestream-updated.{msg_data['id']}")
-                self.kick.subscribe(socket_id=self.socket_id, event=f"private-livestream_{msg_data['id']}")
+                for event in [f"private-livestream-updated.{msg_data['id']}", f"private-livestream_{msg_data['id']}"]:
+                    auth = self.kick.broadcasting_auth(channel=event, socket_id=self.socket_id).json()
+                    self.kick_ws.subscribe(socket_id=self.socket_id, event=event, auth=auth["auth"])
+                user_info = self.kick.getUserData().json();
                 self.update_stream_info()
                 self.stateUpdate(self.TP_PLUGIN_STATES["stream_topic"]["id"], msg_data["category"]["name"])
-                self.stateUpdate(self.TP_PLUGIN_STATES["stream_thumbnail"]["id"], Tools.convertImage_to_base64(self.kick.user_info["livestream"]["thumbnail"]["url"]))
+
+                thumbnail = ""
+                if user_info["livestream"]["thumbnail"]:
+                    thumbnail = Tools.convertImage_to_base64(user_info["livestream"]["thumbnail"]["url"])
+                self.log.info(user_info)
+                self.stateUpdate(self.TP_PLUGIN_STATES["stream_thumbnail"]["id"], thumbnail)
                 self.stream_time = datetime.now()
 
             case "App\\Events\\StopStreamBroadcast":
                 self.stateUpdate(self.TP_PLUGIN_STATES["streaming_status"]["id"], "False")
-                self.kick.unsubscribe(f"private-livestream-updated.{msg_data['livestream']['id']}")
+                self.kick_ws.unsubscribe(f"private-livestream-updated.{msg_data['livestream']['id']}")
                 self.stateUpdate(self.TP_PLUGIN_STATES["stream_topic"]["id"], "")
                 self.stateUpdate(self.TP_PLUGIN_STATES["stream_thumbnail"]["id"], "")
                 self.stream_time = None
@@ -506,17 +541,6 @@ class KickTP(Plugin):
     def on_close(self, error):
         self.log.info(f"WS Closed: {error}")
 
-    def do_login(self):
-        if self.kick == None and not self.is_loggedin:
-            self.kick = Kick(self.email, self.password, self.log)
-            self.kick.login()
-            if self.kick.isLoggedin:
-                self.is_loggedin = True
-                self.update_user_data(self.kick.user_info)
-                self.kick.connect_ws(on_message=self.on_message, on_close=self.on_close)
-        else:
-            self.log.debug("Already logged in")
-
     def update_state(self):
         timer = 0
 
@@ -525,9 +549,8 @@ class KickTP(Plugin):
                 self.update_stream_info()
 
             if timer >= 60:
-                if self.is_loggedin:
-                    self.kick.send_ping() # keep ws alive
-                    self.kick.save_cookie()
+                if self.kick.isUserLoggedIn:
+                    self.kick_ws.send_ping() # keep ws alive
                     timer = 0
 
             if self.stream_time != None:
@@ -546,21 +569,29 @@ class KickTP(Plugin):
     def onStart(self, data):
         self.log.info(f"Connected to TP v{data.get('tpVersionString', '?')}, plugin v{data.get('pluginVersion', '?')}.")
         self.log.debug(f"Connection: {data}")
+
         self.state_usedefault()
+
         if data["settings"][2]["email"] and data["settings"][3]["password"]:
-            self.do_login()
-            self.update_thread.start()
+            self.kick = Kick(data["settings"][2]["email"], data["settings"][3]["password"])
+            self.kick.handleLogin() # does login and automatically handle save session
+
+            if (self.kick.isUserLoggedIn):
+                self.kick.setData()
+                self.update_thread.start()
+                self.kick_ws = KickWebSockets(self.on_message, self.kick)
+                self.kick_ws.run()
+            else:
+                self.disconnect() # Don't want the plugin to run if not logged in
         
 
     @Plugin.settingsRegister(name="email", type="text")
     def setting_email(self, value):
-        self.email = value
-        # self.do_login()
+        pass
 
     @Plugin.settingsRegister(name="password", type="text", isPassword=True)
     def setting_password(self, value):
-        self.password = value
-        # self.do_login()
+        pass
 
     @Plugin.settingsRegister(name="chat buffer", type="text", default="5")
     def setting_chat_buffer(self, value):
@@ -578,6 +609,9 @@ class KickTP(Plugin):
             response = self.kick.sendMessage(data["message"])
             if response.status_code == 200:
                 self.update_message(response.json()["data"])
+
+    def onError(self, data):
+        self.log.error(f"Error: {data}", exc_info=True)
 
     # @Plugin.actionRegister(id="Slow Mode", category="chat", name="Slow Mode", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
     #                        format="$[option]slow mode with $[value]second message interval")
@@ -607,7 +641,8 @@ class KickTP(Plugin):
     #                        format="$[option]emotes-only chat")
     # @Plugin.data(id="option", type="choice", label="Option", default="Enable", valueChoices=["Enable", "Disable"])
     # def emote_only(self, data):
-    #     self.kick.emote_only(data["option"] == "Enable")
+    #     response = self.kick.emote_only(data["option"] == "Enable")
+    #     print(response.text)
 
     # @Plugin.actionRegister(id="antibotprotection", category="chat", name="Advanced bot protection", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
     #                        format="$[option]advanced bot protection")
