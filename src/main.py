@@ -9,7 +9,7 @@ from sys import exit
 from datetime import datetime
 
 class KickTP(Plugin):
-    __version__ = 70
+    __version__ = 97
 
     PLUGIN_ID = "com.github.killerboss2019.kicktp"
 
@@ -36,7 +36,7 @@ class KickTP(Plugin):
         "chat": {
             "id": PLUGIN_ID + ".chat",
             "name": "Kick - Chat",
-            "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick_chat.png"
+            "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick.png"
         }
     }
 
@@ -213,34 +213,18 @@ class KickTP(Plugin):
             "parentGroup": "Kick stream info",
             "category": "main"
         },
-        "latest_message_content": {
-            "id": PLUGIN_ID + ".state.latest_message_content",
-            "type": "text",
-            "desc": "Kick Latest Message",
-            "default": "",
-            "parentGroup": "Kick chat",
-            "category": "chat"
-        },
-        "latest_message_sender": {
-            "id": PLUGIN_ID + ".state.latest_message_sender",
-            "type": "text",
-            "desc": "Kick Latest Message Sender",
-            "default": "",
-            "parentGroup": "Kick chat",
-            "category": "chat"
-        },
-        "latest_message_badges": {
-            "id": PLUGIN_ID + ".state.latest_message_badges",
-            "type": "text",
-            "desc": "Kick Latest Message Badges",
-            "default": "",
-            "parentGroup": "Kick chat",
-            "category": "chat"
-        },
         "latest_follower": {
             "id": PLUGIN_ID + ".state.latest_follower",
             "type": "text",
             "desc": "Kick Latest Follower",
+            "default": "",
+            "parentGroup": "Kick chat",
+            "category": "chat"
+        },
+        "isFollowed": {
+            "id": PLUGIN_ID + ".state.isFollowed",
+            "type": "text",
+            "desc": "Kick is followed",
             "default": "",
             "parentGroup": "Kick chat",
             "category": "chat"
@@ -328,6 +312,8 @@ class KickTP(Plugin):
         self.chatlength = 5
         self.chat_buffer = {}
         self.profile_updated = False
+        self.chatroom_id = ""
+        self.followed_image_cache = {}
     
     def update_user_data(self, user_data):
         self.stateUpdate(self.TP_PLUGIN_STATES["profile_name"]["id"], user_data["user"]["username"])
@@ -352,6 +338,46 @@ class KickTP(Plugin):
             self.profile_updated = True
             self.log.info("profile image updated")
 
+    def update_followed_user(self):
+        data = self.kick.get_followed_user()
+
+        if data.status_code == 200:
+            json_data = data.json()
+
+            for user in json_data["channels"]:
+                requireUpdate = False
+                if user["user_username"] not in self.followed_image_cache or self.followed_image_cache.get(user["user_username"]) != user["profile_picture"]:
+                    requireUpdate = True
+                    self.log.info(f"User {user['user_username']} profile image updated")
+
+                self.createStateMany([
+                    {
+                        "id": self.PLUGIN_ID + f".followed_users.{user['user_username']}.username",
+                        "desc": f"Get followed user {user['user_username']} username",
+                        "type": "text",
+                        "value": f"{user['user_username']}",
+                        "parentGroup": "Followed Users",
+                    },
+                    {
+                        "id": self.PLUGIN_ID + f".followed_users.{user['user_username']}.isLive",
+                        "desc": f"Get followed user {user['user_username']} is live",
+                        "type": "text",
+                        "value": f"{user['is_live']}",
+                        "parentGroup": "Followed Users",
+                    },
+                    {
+                        "id": self.PLUGIN_ID + f".followed_users.{user['user_username']}.viwer_count",
+                        "desc": f"Get followed user {user['user_username']} viwer count",
+                        "type": "text",
+                        "value": f"{user['viewer_count']}",
+                        "parentGroup": "Followed Users",
+                    },
+                ])
+
+                if requireUpdate:
+                    self.followed_image_cache[user["user_username"]] = user["profile_picture"]
+                    self.stateUpdate(self.PLUGIN_ID + f".followed_users.{user['user_username']}.profile_image", Tools.convertImage_to_base64(user["profile_picture"], "Web"))
+
     def update_stream_info(self):
         self.log.info("updating stream info")
         data = self.kick.getUserData()
@@ -361,6 +387,8 @@ class KickTP(Plugin):
         data = data.json()
         live_stream = data["livestream"]
         chatroom = data["chatroom"]
+
+        self.update_followed_user()
         channel_users = data.get("channel_users", [])
 
         for user in range(len(channel_users)):
@@ -402,6 +430,8 @@ class KickTP(Plugin):
         self.stateUpdate(self.TP_PLUGIN_STATES["follower_mode_delay"]["id"], str(chatroom["following_min_duration"]))
         self.stateUpdate(self.TP_PLUGIN_STATES["emote_only_mode_enabled"]["id"], str(chatroom["emotes_mode"]))
         self.stateUpdate(self.TP_PLUGIN_STATES["sub_mode_enabled"]["id"], str(chatroom["subscribers_mode"]))
+        self.chatroom_id = chatroom["id"]
+        # print(chatroom)
 
     def sub_init_events(self):
         user_data = self.kick.getUserData()
@@ -516,7 +546,6 @@ class KickTP(Plugin):
                 thumbnail = ""
                 if user_info["livestream"]["thumbnail"]:
                     thumbnail = Tools.convertImage_to_base64(user_info["livestream"]["thumbnail"]["url"])
-                self.log.info(user_info)
                 self.stateUpdate(self.TP_PLUGIN_STATES["stream_thumbnail"]["id"], thumbnail)
                 self.stream_time = datetime.now()
 
@@ -531,18 +560,16 @@ class KickTP(Plugin):
                 if msg_data["type"] == "message":
                     self.update_message(msg_data)
 
-            case "App\\Events\\FollowersUpdated":
+            case "App\\Events\\FollowersUpdatedForChannelOwner":
                 if msg_data["followed"]:
                     self.stateUpdate(self.TP_PLUGIN_STATES["latest_follower"]["id"], str(msg_data["username"]))
                     self.stateUpdate(self.TP_PLUGIN_STATES["profile_follower_count"]["id"], str(msg_data["followers_count"]))
+                    self.stateUpdate(self.TP_PLUGIN_STATES["isFollowed"]["id"], str(msg_data["followed"]))
             case "App\\Events\\ChatroomUpdatedEvent":
                 self.update_chatroominfo(msg_data)
-    
-    def on_close(self, error):
-        self.log.info(f"WS Closed: {error}")
 
     def update_state(self):
-        timer = 0
+        timer = 57
 
         while self.isConnected():
             if timer % 30 == 0: # update every 30s
@@ -587,11 +614,13 @@ class KickTP(Plugin):
 
     @Plugin.settingsRegister(name="email", type="text")
     def setting_email(self, value):
-        pass
+        # print("new setting email setting")
+        ...
 
     @Plugin.settingsRegister(name="password", type="text", isPassword=True)
     def setting_password(self, value):
-        pass
+        # print("new pass setting")
+        ...
 
     @Plugin.settingsRegister(name="chat buffer", type="text", default="5")
     def setting_chat_buffer(self, value):
@@ -605,10 +634,26 @@ class KickTP(Plugin):
                            format="Send $[message]")
     @Plugin.data(id="message", type="text", label="Message to send to chat", default="Hello World!")
     def send_message(self, data):
-        if self.is_loggedin:
-            response = self.kick.sendMessage(data["message"])
+        if self.kick is not None:
+            response = self.kick.sendMessage(data["message"], self.chatroom_id)
             if response.status_code == 200:
                 self.update_message(response.json()["data"])
+
+    @Plugin.actionRegister(id="setModerator", category="chat", name="Add or Remove Moderator", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+                           format="$[option]$[username] as moderator")
+    @Plugin.data(id="username", type="text", label="Username", default="")
+    @Plugin.data(id="option", type="choice", label="Option", default="Add", valueChoices=["Add", "Remove"])
+    def set_moderator(self, data):
+        if self.kick is not None and data["username"] != "":
+            self.kick.setModerator(data["username"], data["option"] == "Add")
+
+    @Plugin.actionRegister(id="follow", category="chat", name="Follow or Unfollow", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+                           format="$[option]$[username]")
+    @Plugin.data(id="username", type="text", label="Username", default="")
+    @Plugin.data(id="option", type="choice", label="Option", default="Follow", valueChoices=["Follow", "Unfollow"])
+    def follow(self, data):
+        if self.kick is not None and data["username"] != "":
+            self.kick.follow(data["username"], data["option"] == "Follow")
 
     def onError(self, data):
         self.log.error(f"Error: {data}", exc_info=True)
@@ -652,9 +697,10 @@ class KickTP(Plugin):
 
     def on_tpclose(self, data):
         self.log.info("TP closed")
+        self.disconnect()
         self.update_thread.join()
-        if self.kick != None:
-            self.kick.ws.close()
+
+        self.kick_ws.close()
         
 if __name__ == "__main__":
     kicktp = KickTP()

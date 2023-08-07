@@ -1,10 +1,10 @@
 from TouchPortalAPI import tppbuild
 
-PLUGIN_MAIN = "src/main.py"
+PLUGIN_MAIN = "main.py"
 
 PLUGIN_EXE_NAME = "tp_kick"
 
-PLUGIN_EXE_ICON = r""
+PLUGIN_EXE_ICON = r"kick.png"
 
 PLUGIN_ENTRY = PLUGIN_MAIN
 
@@ -12,11 +12,11 @@ PLUGIN_ENTRY_INDENT = 4
 
 PLUGIN_ROOT = "kick"
 
-PLUGIN_ICON = r""
+PLUGIN_ICON = r"kick.png"
 
 OUTPUT_PATH = r"./"
 
-PLUGIN_VERSION = "0.7.0"
+PLUGIN_VERSION = "0.9.7"
 
 ADDITIONAL_FILES = []
 

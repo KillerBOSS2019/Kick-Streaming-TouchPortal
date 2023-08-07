@@ -1,11 +1,11 @@
-from curl_cffi import requests
-import websocket
+import base64
 import json
 import re
-import threading
-import urllib.parse
 from tkinter import *
-import base64
+from tkinter import messagebox
+
+import websocket
+from curl_cffi import requests
 from TouchPortalAPI.logger import Logger
 
 logger = Logger(__name__)
@@ -14,7 +14,9 @@ class Kick2FA:
     def __init__(self) -> None:
         self.root = Tk()
         self.root.title("Kick 2FA")
-        self.root.geometry("300x100")
+
+        self.center_window(300, 100)
+
         self.root.resizable(False, False)
         self.authCode = ""
 
@@ -22,10 +24,24 @@ class Kick2FA:
         label.pack()
         self.entry = Entry(self.root)
         self.entry.pack()
+
+        self.entry.focus_set()
+
+        self.entry.bind("<Return>", self.submit)
+
         button = Button(self.root, text="Submit", command=self.submit)
         button.pack()
     
-    def submit(self):
+    def center_window(self, width, height):
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+
+        x = int((screen_width / 2) - (300 / 2))
+        y = int((screen_height / 2) - (100 / 2))
+
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
+
+    def submit(self, event=None):
         self.authCode = self.entry.get()
         self.root.destroy()
 
@@ -113,6 +129,8 @@ class KickBase(KickSaveSession):
             data = self.session.get(url, data=data, impersonate="chrome101", headers=headers)
         elif method == "POST":
             data = self.session.post(url, data=data, impersonate="chrome101", headers=headers)
+        elif method == "DELETE":
+            data = self.session.delete(url, data=data, impersonate="chrome101", headers=headers)
         elif method == "PUT":
             data = self.session.put(url, data=data, impersonate="chrome101", headers=headers)
 
@@ -124,7 +142,7 @@ class KickBase(KickSaveSession):
             print(f"Request <-- method:{method} url:{url} status_code:{data.status_code} error:{data.text}")
 
         return data
-    
+
 class KickLogin(KickBase):
     BASE_URL = "https://kick.com/"
 
@@ -171,7 +189,13 @@ class KickLogin(KickBase):
         url = self.BASE_URL + "mobile/login"
         response = self.request(url, method="POST", data=data)
 
-        if response.status_code == 400 and (jsonResponse := response.json()):
+        if response.status_code == 400:
+            try:
+                jsonResponse = response.json()
+            except Exception as e:
+                print("failed to parse json response", e)
+                return False
+
             if jsonResponse["2fa_required"]:
                 kick2fa = Kick2FA()
                 authCode = kick2fa.getPasscode()
@@ -180,8 +204,13 @@ class KickLogin(KickBase):
         elif self.is_success_status_code(response.status_code):
             self.session.headers.update({"Authorization": f"Bearer {response.json()['token']}"})
             self._saveToken({"Authorization": response.json()['token']})
+            if data.get("one_time_password", None):
+                messagebox.showinfo("Success", "Login success")
+
             return True
         
+        if data.get("one_time_password", None):
+            messagebox.showwarning("Error", "Login failed")
         return False
     
 class KickWebSockets():
@@ -191,8 +220,8 @@ class KickWebSockets():
         self.ws = websocket.WebSocketApp(self.WS_ADDRESS, on_message=onMessage, on_close=self.on_close, on_error=self.onError)
         self.kick = kick
 
-    def on_close(self, ws):
-        print(f"Ws closed. {ws}")
+    def on_close(self, ws, close_status_code, close_msg):
+        print(f"WS Closed: {close_status_code} {close_msg}")
 
     def send_ping(self):
         data = {
@@ -219,7 +248,11 @@ class KickWebSockets():
     def onError(self, ws, error):
         logger.error(f"Error: {error}", exc_info=True)
 
+    def close(self):
+        self.ws.close()
+
     def run(self):
+        # Thread(target=self.ws.run_forever).start()
         self.ws.run_forever()
 
 class Kick(KickLogin):
@@ -254,7 +287,43 @@ class Kick(KickLogin):
         url = self.BASE_URL + "api/v2/channels/" + self.username
         data = self.request(url)
         return data
+    
+    def getModerators(self):
+        url = self.BASE_URL + "api/internal/v1/user/moderators"
+        data = self.request(url, method="GET")
+        return data
+    
+    def get_followed_user(self):
+        url = self.BASE_URL + "api/v2/channels/followed?cursor=0"
+        data = self.request(url, method="GET")
+        return data
 
-    def sendMessage(self, message):
-        url = self.BASE_URL + "api/v2/messages/send/" + str(self.user_info["chatroom"]["id"])
-        return self.request(url, data={"content": str(message), "type": "message"}, method="POST")
+    def sendMessage(self, message, chatroomid):
+        url = self.BASE_URL + "api/v2/messages/send/" + str(chatroomid)
+        response = self.request(url, data={"content": str(message), "type": "message"}, method="POST")
+        return response
+    
+    def setModerator(self, username, add=True):
+        if add:
+            url = self.BASE_URL + "api/internal/v1/channels/" + self.username + "/community/moderators"
+            data = {
+                "username": username
+            }
+            response = self.request(url, data=data, method="POST")
+        else:
+            url = self.BASE_URL + "api/internal/v1/channels/" + \
+                self.username + "/community/moderators/" + username
+            
+            response = self.request(url, method="DELETE")
+
+        return response
+    
+    def follow(self, username, follow=True):
+        if follow:
+            url = self.BASE_URL + "api/v2/channels/" + username + "/follow"
+            response = self.request(url, method="POST")
+        else:
+            url = self.BASE_URL + "api/v2/channels/" + username + "/follow"
+            response = self.request(url, method="DELETE")
+        
+        return response
