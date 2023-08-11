@@ -29,7 +29,13 @@ from TouchPortalAPI import sdk_tools
 import json
 
 
+class __TPPluginMeta:
+    __TP_SETTINGS = {}
+
+
 class Plugin(Client):
+    __TP_REGISTER_CALLCOUNT = 0
+
     def __init__(self, pluginId: str,
                  sleepPeriod: float = 0.01,
                  autoClose: bool = False,
@@ -51,6 +57,7 @@ class Plugin(Client):
         self.add_listener(TP.TYPES.onAction, self._actionHandler)
         self.add_listener(TP.TYPES.onConnect, self._onConnect)
         self.add_listener(TP.TYPES.onSettingUpdate, self._onSettings)
+        self.add_listener(TP.TYPES.onError, self._onError)
         self.settings = {}
 
         self.registeredAction = {}
@@ -73,11 +80,18 @@ class Plugin(Client):
                     f"{parm} arg needs to be type {annotation[parm].annotation} not {type(argsValue[parm])}")
                 isvaild = False
         return isvaild
+    
+    def getDoc(self, func):
+        if hasattr(func, '__doc__'):
+            return func.__doc__
+        
+        return ""
 
     def _actionHandler(self, data):
-        if not (action_data := data.get('data')) or not (actionid := data.get('actionId')):
+        if not (actionid := data.get('actionId')):
             return
-    
+        
+        action_data = data.get('data')
         action_data = {data["id"].split(".")[-1]: data["value"] for data in action_data}
 
         if actionid in self.registeredAction.keys():
@@ -96,6 +110,7 @@ class Plugin(Client):
                 argValue = self.getArgs(frame)
                 annotation = dict(signature(self.settingsRegister).parameters)
                 isVaildEntry = self.runErrorCheck(argValue, annotation)
+
                 if isVaildEntry:
                     setting = {
                         "name": argValue['name'],
@@ -115,12 +130,15 @@ class Plugin(Client):
                     
                     if argValue['readOnly']:
                         setting["readOnly"] = argValue['readOnly']
+
+                    if (doc := self.getDoc(func)) != "":
+                        setting["doc"] = doc
                 else:
                     raise TypeError("Please check the error above.")
-                self.TP_PLUGIN_SETTINGS[len(
-                    self.TP_PLUGIN_SETTINGS.keys())] = setting
-                
-            wrapper.wrapped = True
+                self.TP_PLUGIN_SETTINGS[name] = setting
+            
+            Plugin.__TP_REGISTER_CALLCOUNT += 1
+            wrapper.wrapped = Plugin.__TP_REGISTER_CALLCOUNT
             return wrapper
 
         return decorator
@@ -140,16 +158,21 @@ class Plugin(Client):
                     'type': type
                 }
 
-                action_data = func.data.get('data', [])
+                if hasattr(func, 'data'):
+                    action_data = func.data
+                else:
+                    action_data = []
+
                 if action_data and format is not None:
                     formats = format
                     for data in action_data:
                         old_id = data["id"]
                         data["id"] = new_id + ".data." + old_id
-                        if data_id := data.get('id'):
-                            formats = formats.replace("$[" + old_id + "]", "{$" + data_id + "$}")
+                        formats = formats.replace("$[" + old_id + "]", f"$[{action_data.index(data) + 1}]")
                     action['format'] = formats
                     action['data'] = action_data
+                else:
+                    action['format'] = format
                 
                 if isinstance(category, str) and category != "":
                     action['category'] = category
@@ -171,9 +194,19 @@ class Plugin(Client):
 
                 self.TP_PLUGIN_ACTIONS[id] = action
 
-            wrapper.wrapped = True
+                if (doc := self.getDoc(func)) != "":
+                        action["doc"] = doc
+
+            Plugin.__TP_REGISTER_CALLCOUNT += 1
+            wrapper.wrapped = Plugin.__TP_REGISTER_CALLCOUNT
             return wrapper
 
+        return decorator
+    
+    def addDoc(doc:str):
+        def decorator(func):
+            func.__doc__ = doc
+            return func
         return decorator
     
     def connectorRegister(id:str, name:str, format:str):
@@ -202,10 +235,7 @@ class Plugin(Client):
     def data(id:str, type:str, label:str, default:str, valueChoices:list=None, extensions:list=None, allowDecimals:bool=None, minValue:int=None, maxValue:int=None):
         def decorator(func):
             if not hasattr(func, 'data'):
-                func.data = {}
-
-            if 'data' not in func.data:
-                func.data['data'] = []
+                func.data = []
 
             if any([id, type, label, default]) is None:
                 raise Exception("id, type, label, default is required")
@@ -244,7 +274,7 @@ class Plugin(Client):
                 if (allowDecimals or minValue or maxValue) is not None:
                     raise Exception("allowDecimals, minValue, maxValue is only for number type")
 
-            func.data['data'].append(data_entry)
+            func.data.append(data_entry)
             return func
 
         return decorator
@@ -285,18 +315,17 @@ class Plugin(Client):
             if callable(attr) and hasattr(attr, "wrapped"):
                 wrapped_methods.append(attr)
 
+        # write a sort function that sorts by the wrapped attribute
+        wrapped_methods.sort(key=lambda x: x.wrapped)
         return wrapped_methods
 
     def startRegister(self):
         for action in self.getRegisteredMethod():
             action()
 
-    def generateEntry(self):
-        self.startRegister()
-        data = sdk_tools.generateDefinitionFromModule(self)
-        with open("entry.tp", "w") as f:
-            json.dump(data, f, indent=4)
-
     def start(self):
         self.startRegister()
         self.connect()
+
+    def _onError(self, error):
+        print(error)

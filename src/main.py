@@ -1,15 +1,17 @@
-from kick import Kick, KickWebSockets
-from Plugin import Plugin
 import json
-from time import sleep
-from threading import Thread
-from TouchPortalAPI import Tools
-from TouchPortalAPI import TYPES
-from sys import exit
 from datetime import datetime
+from sys import exit
+from threading import Thread, Timer
+from time import sleep
+
+from TouchPortalAPI import TYPES, Tools
+
+from kickapi import Kick, KickWebSockets, KickSaveSession
+from Plugin import Plugin
+
 
 class KickTP(Plugin):
-    __version__ = 97
+    __version__ = 111
 
     PLUGIN_ID = "com.github.killerboss2019.kicktp"
 
@@ -30,21 +32,45 @@ class KickTP(Plugin):
     TP_PLUGIN_CATEGORIES = {
         "main": {
             "id": PLUGIN_ID + ".main",
-            "name": "Kick",
+            "name": "Kick - Profile",
             "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick.png"
         },
         "chat": {
             "id": PLUGIN_ID + ".chat",
             "name": "Kick - Chat",
             "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick.png"
-        }
+        },
+        "poll": {
+            "id": PLUGIN_ID + ".poll",
+            "name": "Kick - Poll",
+            "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick.png"
+        },
+        "socials": {
+            "id": PLUGIN_ID + ".socials",
+            "name": "Kick - Socials",
+            "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick.png"
+        },
+        "streaminfo": {
+            "id": PLUGIN_ID + ".streaminfo",
+            "name": "Kick - Stream Info",
+            "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick.png"
+        },
     }
 
     TP_PLUGIN_CONNECTORS = {}
 
     TP_PLUGIN_ACTIONS = {}
-
+    
     TP_PLUGIN_STATES = {
+        # Profile
+        "profile_image": {
+            "id": PLUGIN_ID + ".state.profile_image",
+            "type": "text",
+            "desc": "Kick Profile Image",
+            "default": "None",
+            "parentGroup": "Kick profile",
+            "category": "main"
+        },
         "profile_name": {
             "id": PLUGIN_ID + ".state.profile_name",
             "type": "text",
@@ -93,69 +119,65 @@ class KickTP(Plugin):
             "parentGroup": "Kick profile",
             "category": "main"
         },
+
+        # Socials
         "instagram": {
             "id": PLUGIN_ID + ".state.instagram",
             "type": "text",
             "desc": "Kick Profile Instagram",
             "default": "None",
-            "parentGroup": "Kick profile",
-            "category": "main"
+            "parentGroup": "Kick - Socials",
+            "category": "socials"
         },
         "twitter": {
             "id": PLUGIN_ID + ".state.twitter",
             "type": "text",
             "desc": "Kick Profile Twitter",
             "default": "None",
-            "parentGroup": "Kick profile",
-            "category": "main"
+            "parentGroup": "Kick - Socials",
+            "category": "socials"
         },
         "youtube": {
             "id": PLUGIN_ID + ".state.youtube",
             "type": "text",
             "desc": "Kick Profile Youtube",
             "default": "None",
-            "parentGroup": "Kick profile",
-            "category": "main"
+            "parentGroup": "Kick - Socials",
+            "category": "socials"
         },
         "discord": {
             "id": PLUGIN_ID + ".state.discord",
             "type": "text",
             "desc": "Kick Profile Discord",
             "default": "None",
-            "parentGroup": "Kick profile",
-            "category": "main"
+            "parentGroup": "Kick - Socials",
+            "category": "socials"
         },
         "tiktok": {
             "id": PLUGIN_ID + ".state.tiktik",
             "type": "text",
             "desc": "Kick Profile TikTok",
             "default": "None",
-            "parentGroup": "Kick profile",
-            "category": "main"
+            "parentGroup": "Kick - Socials",
+            "category": "socials"
         },
         "facebook": {
             "id": PLUGIN_ID + ".state.facebook",
             "type": "text",
             "desc": "Kick Profile Facebook",
             "default": "None",
-            "parentGroup": "Kick profile",
-            "category": "main"
+            "parentGroup": "Kick - Socials",
+            "category": "socials"
         },
-        "profile_image": {
-            "id": PLUGIN_ID + ".state.profile_image",
-            "type": "text",
-            "desc": "Kick Profile Image",
-            "default": "None",
-            "parentGroup": "Kick profile",
-            "category": "main"
-        },
+        
+        # Stream Info
         "streaming_status": {
             "id": PLUGIN_ID + ".state.streaming_status",
             "type": "text",
             "desc": "Kick is Live",
             "default": "False",
             "parentGroup": "Kick stream info",
-            "category": "main"
+            "category": "streaminfo"
         },
         "streaming_title": {
             "id": PLUGIN_ID + ".state.streaming_title",
@@ -163,7 +185,7 @@ class KickTP(Plugin):
             "desc": "Kick Stream Title",
             "default": "None",
             "parentGroup": "Kick stream info",
-            "category": "main"
+            "category": "streaminfo"
         },
         "streaming_viewers": {
             "id": PLUGIN_ID + ".state.streaming_viewers",
@@ -171,7 +193,7 @@ class KickTP(Plugin):
             "desc": "Kick stream viewer count",
             "default": "0",
             "parentGroup": "Kick stream info",
-            "category": "main"
+            "category": "streaminfo"
         },
         "streaming_duration": {
             "id": PLUGIN_ID + ".state.streaming_duration",
@@ -179,7 +201,7 @@ class KickTP(Plugin):
             "desc": "Kick Stream Duration",
             "default": "0",
             "parentGroup": "Kick stream info",
-            "category": "main"
+            "category": "streaminfo"
         },
         "is_mature": {
             "id": PLUGIN_ID + ".state.is_mature",
@@ -187,7 +209,7 @@ class KickTP(Plugin):
             "desc": "Kick Stream is Mature",
             "default": "False",
             "parentGroup": "Kick stream info",
-            "category": "main"
+            "category": "streaminfo"
         },
         "stream_lang": {
             "id": PLUGIN_ID + ".state.stream_lang",
@@ -195,7 +217,7 @@ class KickTP(Plugin):
             "desc": "Kick Stream Language",
             "default": "None",
             "parentGroup": "Kick stream info",
-            "category": "main"
+            "category": "streaminfo"
         },
         "stream_thumbnail": {
             "id": PLUGIN_ID + ".state.stream_thumbnail",
@@ -203,7 +225,7 @@ class KickTP(Plugin):
             "desc": "Kick Stream Thumbnail",
             "default": "None",
             "parentGroup": "Kick stream info",
-            "category": "main"
+            "category": "streaminfo"
         },
         "stream_topic": {
             "id": PLUGIN_ID + ".state.stream_topic",
@@ -211,8 +233,10 @@ class KickTP(Plugin):
             "desc": "Kick Stream Topic",
             "default": "None",
             "parentGroup": "Kick stream info",
-            "category": "main"
+            "category": "streaminfo"
         },
+
+        # Chat
         "latest_follower": {
             "id": PLUGIN_ID + ".state.latest_follower",
             "type": "text",
@@ -221,10 +245,10 @@ class KickTP(Plugin):
             "parentGroup": "Kick chat",
             "category": "chat"
         },
-        "isFollowed": {
-            "id": PLUGIN_ID + ".state.isFollowed",
+        "latest_unfollower": {
+            "id": PLUGIN_ID + ".state.latest_unfollower",
             "type": "text",
-            "desc": "Kick is followed",
+            "desc": "Kick Latest Unfollower",
             "default": "",
             "parentGroup": "Kick chat",
             "category": "chat"
@@ -293,9 +317,189 @@ class KickTP(Plugin):
             "parentGroup": "Kick chat",
             "category": "chat"
         },
+
+        # Poll states
+        "poll_question": {
+            "id": PLUGIN_ID + ".state.poll_question",
+            "type": "text",
+            "desc": "Kick poll question",
+            "default": "None",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option1_votes": {
+            "id": PLUGIN_ID + ".state.option1_votes",
+            "type": "text",
+            "desc": "Kick poll option 1 votes",
+            "default": "0",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option1_label": {
+            "id": PLUGIN_ID + ".state.option1_label",
+            "type": "text",
+            "desc": "Kick poll option 1 label",
+            "default": "None",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option2_votes": {
+            "id": PLUGIN_ID + ".state.option2_votes",
+            "type": "text",
+            "desc": "Kick poll option 2 votes",
+            "default": "0",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option2_label": {
+            "id": PLUGIN_ID + ".state.option2_label",
+            "type": "text",
+            "desc": "Kick poll option 2 label",
+            "default": "None",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option3_votes": {
+            "id": PLUGIN_ID + ".state.option3_votes",
+            "type": "text",
+            "desc": "Kick poll option 3 votes",
+            "default": "0",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option3_label": {
+            "id": PLUGIN_ID + ".state.option3_label",
+            "type": "text",
+            "desc": "Kick poll option 3 label",
+            "default": "None",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option4_votes": {
+            "id": PLUGIN_ID + ".state.option4_votes",
+            "type": "text",
+            "desc": "Kick poll option 4 votes",
+            "default": "0",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option4_label": {
+            "id": PLUGIN_ID + ".state.option4_label",
+            "type": "text",
+            "desc": "Kick poll option 4 label",
+            "default": "None",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option5_votes": {
+            "id": PLUGIN_ID + ".state.option5_votes",
+            "type": "text",
+            "desc": "Kick poll option 5 votes",
+            "default": "0",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option5_label": {
+            "id": PLUGIN_ID + ".state.option5_label",
+            "type": "text",
+            "desc": "Kick poll option 5 label",
+            "default": "None",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option6_votes": {
+            "id": PLUGIN_ID + ".state.option6_votes",
+            "type": "text",
+            "desc": "Kick poll option 6 votes",
+            "default": "0",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "option6_label": {
+            "id": PLUGIN_ID + ".state.option6_label",
+            "type": "text",
+            "desc": "Kick poll option 6 label",
+            "default": "None",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        },
+        "is_poll_running": {
+            "id": PLUGIN_ID + ".state.is_poll_running",
+            "type": "text",
+            "desc": "Kick is poll running",
+            "default": "False",
+            "parentGroup": "Kick poll",
+            "category": "poll"
+        }
     }
 
-    TP_PLUGIN_EVENTS = {}
+    TP_PLUGIN_EVENTS = {
+        "onSlowMode": {
+            "id": PLUGIN_ID + ".event.onSlowMode",
+            "name": "On slow mode",
+            "format": "When slow mode is $val",
+            "type": "communicate",
+            "valueType": "choice",
+            "valueChoices": [
+                "True",
+                "False"
+            ],
+            "valueStateId": TP_PLUGIN_STATES["slow_mode_enabled"]["id"],
+            "category": "chat"
+        },
+        "onFollowerMode": {
+            "id": PLUGIN_ID + ".event.onFollowerMode",
+            "name": "On follower mode",
+            "format": "When follower mode is $val",
+            "type": "communicate",
+            "valueType": "choice",
+            "valueChoices": [
+                "True",
+                "False"
+            ],
+            "valueStateId": TP_PLUGIN_STATES["follower_mode_enabled"]["id"],
+            "category": "chat"
+        },
+        "onEmoteOnlyMode": {
+            "id": PLUGIN_ID + ".event.onEmoteOnlyMode",
+            "name": "On emote only mode",
+            "format": "When emote only mode is $val",
+            "type": "communicate",
+            "valueType": "choice",
+            "valueChoices": [
+                "True",
+                "False"
+            ],
+            "valueStateId": TP_PLUGIN_STATES["emote_only_mode_enabled"]["id"],
+            "category": "chat"
+        },
+        "onSubMode": {
+            "id": PLUGIN_ID + ".event.onSubMode",
+            "name": "On sub mode",
+            "format": "When sub mode is $val",
+            "type": "communicate",
+            "valueType": "choice",
+            "valueChoices": [
+                "True",
+                "False"
+            ],
+            "valueStateId": TP_PLUGIN_STATES["sub_mode_enabled"]["id"],
+            "category": "chat"
+        },
+        "onAdvAntibot": {
+            "id": PLUGIN_ID + ".event.onAdvAntibot",
+            "name": "On advanced antibot",
+            "format": "When advanced antibot is $val",
+            "type": "communicate",
+            "valueType": "choice",
+            "valueChoices": [
+                "True",
+                "False"
+            ],
+            "valueStateId": TP_PLUGIN_STATES["adv_antibot_enabled"]["id"],
+            "category": "chat"
+        }
+    }
 
     def __init__(self):
         super().__init__(self.PLUGIN_ID, logFileName=self.TP_PLUGIN_INFO["name"] + ".log")
@@ -314,6 +518,8 @@ class KickTP(Plugin):
         self.profile_updated = False
         self.chatroom_id = ""
         self.followed_image_cache = {}
+        self.chat_time_format = "%I:%M:%S %p"
+        self.poll_timer_thread = None
     
     def update_user_data(self, user_data):
         self.stateUpdate(self.TP_PLUGIN_STATES["profile_name"]["id"], user_data["user"]["username"])
@@ -346,28 +552,31 @@ class KickTP(Plugin):
 
             for user in json_data["channels"]:
                 requireUpdate = False
+                user_index = json_data["channels"].index(user)
+                name = user["user_username"]
+
                 if user["user_username"] not in self.followed_image_cache or self.followed_image_cache.get(user["user_username"]) != user["profile_picture"]:
                     requireUpdate = True
-                    self.log.info(f"User {user['user_username']} profile image updated")
+                    self.log.info(f"User {name} profile image updated")
 
                 self.createStateMany([
                     {
-                        "id": self.PLUGIN_ID + f".followed_users.{user['user_username']}.username",
-                        "desc": f"Get followed user {user['user_username']} username",
+                        "id": self.PLUGIN_ID + f".followed_users.{user_index}.username",
+                        "desc": f"Get followed user {name} username",
                         "type": "text",
-                        "value": f"{user['user_username']}",
+                        "value": f"{name}",
                         "parentGroup": "Followed Users",
                     },
                     {
-                        "id": self.PLUGIN_ID + f".followed_users.{user['user_username']}.isLive",
-                        "desc": f"Get followed user {user['user_username']} is live",
+                        "id": self.PLUGIN_ID + f".followed_users.{user_index}.isLive",
+                        "desc": f"Get followed user {name} is live",
                         "type": "text",
                         "value": f"{user['is_live']}",
                         "parentGroup": "Followed Users",
                     },
                     {
-                        "id": self.PLUGIN_ID + f".followed_users.{user['user_username']}.viwer_count",
-                        "desc": f"Get followed user {user['user_username']} viwer count",
+                        "id": self.PLUGIN_ID + f".followed_users.{user_index}.viwer_count",
+                        "desc": f"Get followed user {name} viwer count",
                         "type": "text",
                         "value": f"{user['viewer_count']}",
                         "parentGroup": "Followed Users",
@@ -376,7 +585,10 @@ class KickTP(Plugin):
 
                 if requireUpdate:
                     self.followed_image_cache[user["user_username"]] = user["profile_picture"]
-                    self.stateUpdate(self.PLUGIN_ID + f".followed_users.{user['user_username']}.profile_image", Tools.convertImage_to_base64(user["profile_picture"], "Web"))
+                    self.createState(self.PLUGIN_ID + f".followed_users.{user_index}.profile_image",
+                                     f"Get followed user {name} profile image",
+                                     Tools.convertImage_to_base64(user["profile_picture"], "Web"),
+                                     "Followed Users")
 
     def update_stream_info(self):
         self.log.info("updating stream info")
@@ -388,7 +600,6 @@ class KickTP(Plugin):
         live_stream = data["livestream"]
         chatroom = data["chatroom"]
 
-        self.update_followed_user()
         channel_users = data.get("channel_users", [])
 
         for user in range(len(channel_users)):
@@ -444,7 +655,6 @@ class KickTP(Plugin):
             auth = self.kick.broadcasting_auth(channel=event, socket_id=self.socket_id).json()["auth"]
             self.kick_ws.subscribe(event=event, socket_id=self.socket_id, auth=auth)
 
-
     def update_chatroominfo(self, chatroom_info):
         self.stateUpdate(self.TP_PLUGIN_STATES["slow_mode_enabled"]["id"], str(chatroom_info["slow_mode"]["enabled"]))
         self.stateUpdate(self.TP_PLUGIN_STATES["slow_mode_delay"]["id"], str(chatroom_info["slow_mode"]["message_interval"]))
@@ -484,14 +694,30 @@ class KickTP(Plugin):
                     "type": "text",
                     "value": "",
                     "parentGroup": "Chat Buffer",
+                },
+                {
+                    "id": self.PLUGIN_ID + f".chatbuffer.{message_state}.user_color",
+                    "desc": f"Get index {message_state} user color",
+                    "type": "text",
+                    "value": "",
+                    "parentGroup": "Chat Buffer"
+                },
+                {
+                    "id": self.PLUGIN_ID + f".chatbuffer.{message_state}.time",
+                    "desc": f"Get index {message_state} time",
+                    "type": "text",
+                    "value": "",
+                    "parentGroup": "Chat Buffer"
                 }
             ])
-            self.chat_buffer[message_state] = {"message": "", "username": "", "badge": ""}
+            self.chat_buffer[message_state] = {"message": "", "username": "", "badge": "", "user_color": "", "time": ""}
 
-    def update_chat_state(self, index, message, username, badge):
+    def update_chat_state(self, index, message, username, badge, color, time):
         self.chat_buffer[index]["message"] = message
         self.chat_buffer[index]["username"] = username
         self.chat_buffer[index]["badge"] = badge
+        self.chat_buffer[index]["user_color"] = color
+        self.chat_buffer[index]["time"] = time
         self.stateUpdateMany([
             {
                 "id": self.PLUGIN_ID + f".chatbuffer.{index}.message",
@@ -504,21 +730,56 @@ class KickTP(Plugin):
             {
                 "id": self.PLUGIN_ID + f".chatbuffer.{index}.badge",
                 "value": badge
+            },
+            {
+                "id": self.PLUGIN_ID + f".chatbuffer.{index}.user_color",
+                "value": color
+            },
+            {
+                "id": self.PLUGIN_ID + f".chatbuffer.{index}.time",
+                "value": time
             }
         ])
 
     def update_message(self, message_data):
         if self.chat_buffer:
             for state in range(len(self.chat_buffer.keys()), 1, -1):
-                self.update_chat_state(state, self.chat_buffer[state - 1]["message"], self.chat_buffer[state - 1]["username"], self.chat_buffer[state - 1]["badge"])
+                self.update_chat_state(state, self.chat_buffer[state - 1]["message"], 
+                                       self.chat_buffer[state - 1]["username"], 
+                                       self.chat_buffer[state - 1]["badge"],
+                                       self.chat_buffer[state - 1]["user_color"],
+                                       self.chat_buffer[state - 1]["time"])
 
-            message = message_data["content"]
+            message = self.kick.decode_emotes(message_data["content"])
             username = message_data["sender"]["username"]
+            user_color = message_data["sender"]["identity"]["color"]
+            time = datetime.now().strftime(self.chat_time_format)
             badge_string = ""
             if badges := message_data["sender"]["identity"]["badges"]:
                 badge_string = ",".join(f'"{badge["type"]}:{badge["text"]}"' for badge in badges)
 
-            self.update_chat_state(1, message, username, badge_string)
+            self.update_chat_state(1, message, username, badge_string, user_color, time)
+
+    def reset_poll(self):
+        # self.stateUpdate(self.TP_PLUGIN_STATES["poll_question"]["id"], "")
+        self.stateUpdate(self.TP_PLUGIN_STATES["is_poll_running"]["id"], "False")
+
+        # for option in range(1, 7):
+        #     self.stateUpdate(self.TP_PLUGIN_STATES[f"option{option}_votes"]["id"], "")
+        #     self.stateUpdate(self.TP_PLUGIN_STATES[f"option{option}_label"]["id"], "")
+
+    def update_poll(self, poll_data):
+        poll_data = poll_data["poll"]
+        self.stateUpdate(self.TP_PLUGIN_STATES["poll_question"]["id"], poll_data["title"])
+        self.stateUpdate(self.TP_PLUGIN_STATES["is_poll_running"]["id"], "True")
+
+        for option in range(1, 7):
+            if option <= len(poll_data["options"]):
+                self.stateUpdate(self.TP_PLUGIN_STATES[f"option{option}_votes"]["id"], str(poll_data["options"][option-1]["votes"]))
+                self.stateUpdate(self.TP_PLUGIN_STATES[f"option{option}_label"]["id"], str(poll_data["options"][option-1]["label"]))
+            else:
+                self.stateUpdate(self.TP_PLUGIN_STATES[f"option{option}_votes"]["id"], "")
+                self.stateUpdate(self.TP_PLUGIN_STATES[f"option{option}_label"]["id"], "")
 
     def on_message(self, ws, message):
         msg = json.loads(message)
@@ -561,12 +822,31 @@ class KickTP(Plugin):
                     self.update_message(msg_data)
 
             case "App\\Events\\FollowersUpdatedForChannelOwner":
-                if msg_data["followed"]:
+                if msg_data["followed"] and msg["username"]:
                     self.stateUpdate(self.TP_PLUGIN_STATES["latest_follower"]["id"], str(msg_data["username"]))
-                    self.stateUpdate(self.TP_PLUGIN_STATES["profile_follower_count"]["id"], str(msg_data["followers_count"]))
-                    self.stateUpdate(self.TP_PLUGIN_STATES["isFollowed"]["id"], str(msg_data["followed"]))
+                else:
+                    self.stateUpdate(self.TP_PLUGIN_STATES["latest_unfollower"]["id"], str(msg_data["username"]))
+
+                self.stateUpdate(self.TP_PLUGIN_STATES["profile_follower_count"]["id"], str(msg_data["followers_count"]))
             case "App\\Events\\ChatroomUpdatedEvent":
                 self.update_chatroominfo(msg_data)
+            
+            case "App\\Events\\ChatroomClearEvent":
+                ...
+
+            case "App\\Events\\PollUpdateEvent":
+                if self.poll_timer_thread == None:
+                    self.poll_timer_thread = Timer(msg_data["poll"]["duration"], self.reset_poll)
+                    self.poll_timer_thread.start()
+
+                self.update_poll(msg_data)
+
+            case "App\\Events\\PollDeleteEvent":
+                if self.poll_timer_thread != None:
+                    self.poll_timer_thread.cancel()
+                    self.poll_timer_thread = None
+                self.reset_poll()
+                
 
     def update_state(self):
         timer = 57
@@ -574,10 +854,12 @@ class KickTP(Plugin):
         while self.isConnected():
             if timer % 30 == 0: # update every 30s
                 self.update_stream_info()
+                self.update_followed_user()
 
             if timer >= 60:
                 if self.kick.isUserLoggedIn:
                     self.kick_ws.send_ping() # keep ws alive
+                    self.kick.update_emotes() # update emotes
                     timer = 0
 
             if self.stream_time != None:
@@ -592,17 +874,36 @@ class KickTP(Plugin):
         for state in self.TP_PLUGIN_STATES.values():
             self.stateUpdate(state["id"], state["default"])
 
+    def is_diffent_account(self, email, password):
+        token = KickSaveSession._loadToken()
+        if token.get("user", False):
+            token_email = token["user"]["email"]
+            token_password = token["user"]["password"]
+
+            return email != token_email or password != token_password
+        return True
+
     @Plugin.onStart()
     def onStart(self, data):
         self.log.info(f"Connected to TP v{data.get('tpVersionString', '?')}, plugin v{data.get('pluginVersion', '?')}.")
         self.log.debug(f"Connection: {data}")
 
         self.state_usedefault()
+        email = data["settings"][0]["email"]
+        password = data["settings"][1]["password"]
 
-        if data["settings"][2]["email"] and data["settings"][3]["password"]:
-            self.kick = Kick(data["settings"][2]["email"], data["settings"][3]["password"])
+        if email and password:
+            is_different = self.is_diffent_account(email, password)
+            if is_different:
+                import os
+                try:
+                    self.log.info("Different account. removing old token file")
+                    os.remove("./token.txt")
+                except FileNotFoundError:
+                    self.log.info("No token file found")
+
+            self.kick = Kick(email, password)
             self.kick.handleLogin() # does login and automatically handle save session
-
             if (self.kick.isUserLoggedIn):
                 self.kick.setData()
                 self.update_thread.start()
@@ -610,90 +911,146 @@ class KickTP(Plugin):
                 self.kick_ws.run()
             else:
                 self.disconnect() # Don't want the plugin to run if not logged in
-        
 
     @Plugin.settingsRegister(name="email", type="text")
+    @Plugin.addDoc("Email used to login to kick")
     def setting_email(self, value):
         # print("new setting email setting")
         ...
 
     @Plugin.settingsRegister(name="password", type="text", isPassword=True)
+    @Plugin.addDoc("Password used to login to kick")
     def setting_password(self, value):
         # print("new pass setting")
         ...
 
     @Plugin.settingsRegister(name="chat buffer", type="text", default="5")
+    @Plugin.addDoc("Number of states will be created to show chat history. eg 5 will show 5 latest messages")
     def setting_chat_buffer(self, value):
         self.chat_length = int(value)
 
     @Plugin.settingsRegister(name="logging", type="text", default="DEBUG")
+    @Plugin.addDoc("Debugging level. eg DEBUG, INFO, WARNING, ERROR, CRITICAL")
     def set_logging(self, value):
-        self.setLogLevel(value)
+        # self.setLogLevel(value)
+        ...
 
-    @Plugin.actionRegister(id="send_message", category="chat", name="Send message", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+    @Plugin.settingsRegister(name="Message Time format", type="text", default="%I:%M:%S %p")
+    @Plugin.addDoc("Time format for chat message. help with formatting can be found here https://strftime.org/")
+    def setting_time_format(self, value):
+        self.time_format = value
+
+    @Plugin.actionRegister(id="send_message", category="chat", name="Send Chat Message", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
                            format="Send $[message]")
+    @Plugin.addDoc("Send message to chat")
     @Plugin.data(id="message", type="text", label="Message to send to chat", default="Hello World!")
     def send_message(self, data):
         if self.kick is not None:
-            response = self.kick.sendMessage(data["message"], self.chatroom_id)
+            response = self.kick.sendMessage(self.kick.encode_emotes(data["message"]), self.chatroom_id)
             if response.status_code == 200:
                 self.update_message(response.json()["data"])
 
+    @Plugin.actionRegister(id="clearChat", category="chat", name="Clear Chat", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+                           format="Clear Chat")
+    @Plugin.addDoc("Clear chat")
+    def clear_chat(self, data):
+        if self.kick is not None:
+            self.kick.clearChat()
+
     @Plugin.actionRegister(id="setModerator", category="chat", name="Add or Remove Moderator", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
                            format="$[option]$[username] as moderator")
+    @Plugin.addDoc("Add or remove moderator")
     @Plugin.data(id="username", type="text", label="Username", default="")
     @Plugin.data(id="option", type="choice", label="Option", default="Add", valueChoices=["Add", "Remove"])
     def set_moderator(self, data):
         if self.kick is not None and data["username"] != "":
             self.kick.setModerator(data["username"], data["option"] == "Add")
 
-    @Plugin.actionRegister(id="follow", category="chat", name="Follow or Unfollow", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+    @Plugin.actionRegister(id="follow", category="chat", name="Follow or Unfollow User", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
                            format="$[option]$[username]")
+    @Plugin.addDoc("Follow or unfollow user")
     @Plugin.data(id="username", type="text", label="Username", default="")
     @Plugin.data(id="option", type="choice", label="Option", default="Follow", valueChoices=["Follow", "Unfollow"])
     def follow(self, data):
         if self.kick is not None and data["username"] != "":
             self.kick.follow(data["username"], data["option"] == "Follow")
 
+    @Plugin.actionRegister(id="CreatePoll", category="chat", name="Create Poll", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+                           format="Create Poll: $[question] duration: $[duration] result displayed for $[result_duration] with $[option1] $[option2] $[option3] $[option4] $[option5] $[option6]")
+    @Plugin.addDoc("Create poll. requires at least 2 options")
+    @Plugin.data(id="question", type="text", label="Question", default="")
+    @Plugin.data(id="option1", type="text", label="Option 1", default="")
+    @Plugin.data(id="option2", type="text", label="Option 2", default="")
+    @Plugin.data(id="option3", type="text", label="Option 3", default="")
+    @Plugin.data(id="option4", type="text", label="Option 4", default="")
+    @Plugin.data(id="option5", type="text", label="Option 5", default="")
+    @Plugin.data(id="option6", type="text", label="Option 6", default="")
+    @Plugin.data(id="duration", type="choice", label="Duration", default="30", valueChoices=["30 seconds", "2 minutes", "3 minutes", "4 minutes", "5 minutes"])
+    @Plugin.data(id="result_duration", type="choice", label="Result Duration", default="15 seconds", valueChoices=["15 seconds", "30 seconds", "2 minutes", "3 minutes", "4 minutes", "5 minutes"])
+    def create_poll(self, data):
+        if self.kick is not None:
+            time_table = {"15 seconds": 15, "30 seconds": 30, "2 minutes": 120, "3 minutes": 180, "4 minutes": 240, "5 minutes": 300}
+            options = [data["option1"], data["option2"], data["option3"], data["option4"], data["option5"], data["option6"]]
+
+            question = data["question"]
+            options = [option for option in options if option != ""]
+            duration = time_table.get(data["duration"], 30)
+            result_duration = time_table.get(data["result_duration"], 15)
+
+            # print(question, options, duration, result_duration)
+
+            self.kick.create_pull(question, options, duration, result_duration)
+
+    @Plugin.actionRegister(id="VotePoll", category="chat", name="Vote Poll", prefix="",
+                           format="Vote Poll: $[option]")
+    @Plugin.addDoc("Vote poll 1-6 depending on the number of options in the poll")
+    @Plugin.data(id="option", type="choice", label="Option", default="Option 1", valueChoices=["Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6"])
+    def vote_poll(self, data):
+        if self.kick is not None:
+            option_table = {"Option 1": 0, "Option 2": 1, "Option 3": 2, "Option 4": 3, "Option 5": 4, "Option 6": 5}
+            self.kick.vote_poll(option_table[data["option"]])
+
+    @Plugin.actionRegister(id="EndPoll", category="chat", name="End Poll", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+                            format="End Poll")
+    @Plugin.addDoc("Delete / Cancel current active poll")
+    def end_poll(self, data):
+        if self.kick is not None:
+            self.kick.end_poll()
+
+    @Plugin.actionRegister(id="tempBan", category="chat", name="Temporary Ban User", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+                           format="Temporary Ban: $[username] for $[duration]minutes with reason: $[reason]")
+    @Plugin.addDoc("Temporary ban specific user with reason and duration in minutes")
+    @Plugin.data(id="username", type="text", label="Username", default="")
+    @Plugin.data(id="duration", type="text", label="Duration", default="1")
+    @Plugin.data(id="reason", type="text", label="Reason", default="")
+    def temp_ban(self, data):
+        if self.kick is not None and data["username"] != "":
+            try:
+                duration = int(data["duration"])
+            except ValueError:
+                duration = 1
+            
+            self.kick.ban(username=data["username"], duration=duration, reason=data["reason"])
+
+    @Plugin.actionRegister(id="ban", category="chat", name="Ban", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+                            format="Ban: $[username] with reason: $[reason]")
+    @Plugin.addDoc("Permanently ban specific user")
+    @Plugin.data(id="username", type="text", label="Username", default="")
+    @Plugin.data(id="reason", type="text", label="Reason", default="")
+    def ban(self, data):
+        if self.kick is not None and data["username"] != "":
+            self.kick.ban(username=data["username"], reason=data["reason"], permanent=True)
+
+    @Plugin.actionRegister(id="unban", category="chat", name="Unban", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+                            format="Unban: $[username]")
+    @Plugin.addDoc("Unban specific user")
+    @Plugin.data(id="username", type="text", label="Username", default="")
+    def unban(self, data):
+        if self.kick is not None and data["username"] != "":
+            self.kick.unban(username=data["username"])
+
     def onError(self, data):
-        self.log.error(f"Error: {data}", exc_info=True)
-
-    # @Plugin.actionRegister(id="Slow Mode", category="chat", name="Slow Mode", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
-    #                        format="$[option]slow mode with $[value]second message interval")
-    # @Plugin.data(id="value", type="text", label="Message interval", default="10")
-    # @Plugin.data(id="option", type="choice", label="Option", default="Enable", valueChoices=["Enable", "Disable"])
-    # def slow_mode(self, data):
-    #     try:
-    #         value = int(data["value"])
-    #     except ValueError:
-    #         self.log.error(f"slow_mode cannot convert {data['value']} to int, using default value of 10 seconds instead")
-    #         value = 10
-    #     self.kick.enable_slowmode(data["option"] == "Enable", value)
-
-    # @Plugin.actionRegister(id="followers_mode", category="chat", name="Followers Only Mode", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
-    #                        format="$[option]followers only mode with $[value]minutes duration")
-    # @Plugin.data(id="value", type="text", label="Duration", default="10")
-    # @Plugin.data(id="option", type="choice", label="Option", default="Enable", valueChoices=["Enable", "Disable"])
-    # def followers_mode(self, data):
-    #     try:
-    #         value = int(data["value"])
-    #     except ValueError:
-    #         self.log.error(f"followers_mode cannot convert {data['value']} to int, using default value of 6 minutes instead")
-    #         value = 6
-    #     self.kick.enable_followersmode(data["option"] == "Enable", value)
-
-    # @Plugin.actionRegister(id="emote_only_mode", category="chat", name="Emotes-Only Chat", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
-    #                        format="$[option]emotes-only chat")
-    # @Plugin.data(id="option", type="choice", label="Option", default="Enable", valueChoices=["Enable", "Disable"])
-    # def emote_only(self, data):
-    #     response = self.kick.emote_only(data["option"] == "Enable")
-    #     print(response.text)
-
-    # @Plugin.actionRegister(id="antibotprotection", category="chat", name="Advanced bot protection", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
-    #                        format="$[option]advanced bot protection")
-    # @Plugin.data(id="option", type="choice", label="Option", default="Enable", valueChoices=["Enable", "Disable"])
-    # def antibotprotection(self, data):
-    #     self.kick.adv_antibot(data["option"] == "Enable")
+        self.log.debug(f"Error: {data}", exc_info=True)
 
     def on_tpclose(self, data):
         self.log.info("TP closed")
@@ -718,6 +1075,7 @@ else:
     TP_PLUGIN_CONNECTORS = kicktp.TP_PLUGIN_CONNECTORS
     TP_PLUGIN_ACTIONS = kicktp.TP_PLUGIN_ACTIONS
     TP_PLUGIN_STATES = kicktp.TP_PLUGIN_STATES
+    TP_PLUGIN_EVENTS = kicktp.TP_PLUGIN_EVENTS
 
     
     
