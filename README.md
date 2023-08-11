@@ -1,4 +1,4 @@
-[Banner](banners/Kick-Banner.png)
+![Banner](banners/Kick-Banner.png)
 
 # Kick-Streaming
 ![Issues](https://img.shields.io/github/issues/KillerBOSS2019/Kick-Streaming-TouchPortal?style=for-the-badge)
