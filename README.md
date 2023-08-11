@@ -1,5 +1,9 @@
+[Banner](banners/Kick-Banner.png)
 
 # Kick-Streaming
+![Issues](https://img.shields.io/github/issues/KillerBOSS2019/Kick-Streaming-TouchPortal?style=for-the-badge)
+![Stars](https://img.shields.io/github/stars/KillerBOSS2019/Kick-Streaming-TouchPortal?style=for-the-badge)
+![Downloads](https://img.shields.io/github/downloads/KillerBOSS2019/Kick-Streaming-TouchPortal/total?style=for-the-badge)
 - [Kick-Streaming](#Kick-Streaming)
   - [Description](#description) 
   - [Settings Overview](#Settings-Overview)
