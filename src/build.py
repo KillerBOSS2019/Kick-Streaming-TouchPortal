@@ -16,7 +16,7 @@ PLUGIN_ICON = r"kick.png"
 
 OUTPUT_PATH = r"./"
 
-PLUGIN_VERSION = "1.1.2"
+PLUGIN_VERSION = "1.1.7"
 
 ADDITIONAL_FILES = []
 

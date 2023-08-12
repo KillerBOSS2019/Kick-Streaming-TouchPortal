@@ -18,6 +18,7 @@ class Kick2FA:
         self.entry.focus_set()
 
         self.entry.bind("<Return>", self.submit)
+        self.root.protocol("WM_DELETE_WINDOW", self.submit)
 
         button = Button(self.root, text="Submit", command=self.submit)
         button.pack()

@@ -9,9 +9,8 @@ from TouchPortalAPI import TYPES, Tools
 from kickapi import Kick, KickWebSockets, KickSaveSession
 from Plugin import Plugin
 
-
 class KickTP(Plugin):
-    __version__ = 111
+    __version__ = 10107
 
     PLUGIN_ID = "com.github.killerboss2019.kicktp"
 
@@ -55,6 +54,11 @@ class KickTP(Plugin):
             "name": "Kick - Stream Info",
             "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick.png"
         },
+        "raid": {
+            "id": PLUGIN_ID + ".raid",
+            "name": "Kick - Raid",
+            "imagepath": "%TP_PLUGIN_FOLDER%kick\\kick.png"
+        }
     }
 
     TP_PLUGIN_CONNECTORS = {}
@@ -430,7 +434,33 @@ class KickTP(Plugin):
             "default": "False",
             "parentGroup": "Kick poll",
             "category": "poll"
-        }
+        },
+
+        # raids
+        "latest_raid_name": {
+            "id": PLUGIN_ID + ".state.latest_raid_name",
+            "type": "text",
+            "desc": "Kick latest raid name",
+            "default": "None",
+            "parentGroup": "Kick raid",
+            "category": "raid"
+        },
+        "latest_raid_viewers": {
+            "id": PLUGIN_ID + ".state.latest_raid_viewers",
+            "type": "text",
+            "desc": "Kick latest raid viewers count",
+            "default": "0",
+            "parentGroup": "Kick raid",
+            "category": "raid"
+        },
+        "latest_raid_optional_message": {
+            "id": PLUGIN_ID + ".state.latest_raid_optional_message",
+            "type": "text",
+            "desc": "Kick latest raid optional message",
+            "default": "None",
+            "parentGroup": "Kick raid",
+            "category": "raid"
+        },
     }
 
     TP_PLUGIN_EVENTS = {
@@ -498,7 +528,33 @@ class KickTP(Plugin):
             ],
             "valueStateId": TP_PLUGIN_STATES["adv_antibot_enabled"]["id"],
             "category": "chat"
-        }
+        },
+        "onPollRunning": {
+            "id": PLUGIN_ID + ".event.onPullRunning",
+            "name": "On poll",
+            "format": "When poll is started $val",
+            "type": "communicate",
+            "valueType": "choice",
+            "valueChoices": [
+                "True",
+                "False"
+            ],
+            "valueStateId": TP_PLUGIN_STATES["is_poll_running"]["id"],
+            "category": "poll"
+        },
+        "onStreamStart": {
+            "id": PLUGIN_ID + ".event.onStreamStart",
+            "name": "On stream start",
+            "format": "When stream is started $val",
+            "type": "communicate",
+            "valueType": "choice",
+            "valueChoices": [
+                "True",
+                "False"
+            ],
+            "valueStateId": TP_PLUGIN_STATES["streaming_status"]["id"],
+            "category": "streaminfo"
+        },
     }
 
     def __init__(self):
@@ -552,7 +608,7 @@ class KickTP(Plugin):
 
             for user in json_data["channels"]:
                 requireUpdate = False
-                user_index = json_data["channels"].index(user)
+                user_index = json_data["channels"].index(user) + 1
                 name = user["user_username"]
 
                 if user["user_username"] not in self.followed_image_cache or self.followed_image_cache.get(user["user_username"]) != user["profile_picture"]:
@@ -562,21 +618,21 @@ class KickTP(Plugin):
                 self.createStateMany([
                     {
                         "id": self.PLUGIN_ID + f".followed_users.{user_index}.username",
-                        "desc": f"Get followed user {name} username",
+                        "desc": f"Get followed index {user_index} username",
                         "type": "text",
                         "value": f"{name}",
                         "parentGroup": "Followed Users",
                     },
                     {
                         "id": self.PLUGIN_ID + f".followed_users.{user_index}.isLive",
-                        "desc": f"Get followed user {name} is live",
+                        "desc": f"Get followed index {user_index} is live",
                         "type": "text",
                         "value": f"{user['is_live']}",
                         "parentGroup": "Followed Users",
                     },
                     {
-                        "id": self.PLUGIN_ID + f".followed_users.{user_index}.viwer_count",
-                        "desc": f"Get followed user {name} viwer count",
+                        "id": self.PLUGIN_ID + f".followed_users.{user_index}.viewer",
+                        "desc": f"Get followed index {user_index} viewer count",
                         "type": "text",
                         "value": f"{user['viewer_count']}",
                         "parentGroup": "Followed Users",
@@ -586,7 +642,7 @@ class KickTP(Plugin):
                 if requireUpdate:
                     self.followed_image_cache[user["user_username"]] = user["profile_picture"]
                     self.createState(self.PLUGIN_ID + f".followed_users.{user_index}.profile_image",
-                                     f"Get followed user {name} profile image",
+                                     f"Get followed index {user_index} profile image",
                                      Tools.convertImage_to_base64(user["profile_picture"], "Web"),
                                      "Followed Users")
 
@@ -605,25 +661,25 @@ class KickTP(Plugin):
         for user in range(len(channel_users)):
             self.createStateMany([
                 {
-                    "id": self.PLUGIN_ID + f".channelusers.{user}.username",
-                    "desc": f"Get channel user {channel_users[user]['user']['username']} username",
+                    "id": self.PLUGIN_ID + f".channelusers.{user+1}.username",
+                    "desc": f"Get moderator index {user+1} username",
                     "type": "text",
                     "value": f"{channel_users[user]['user']['username']}",
-                    "parentGroup": "Channel Users",
+                    "parentGroup": "Moderators",
                 },
                 {
-                    "id": self.PLUGIN_ID + f".channelusers.{user}.role",
-                    "desc": f"Get channel user {channel_users[user]['user']['username']} role",
+                    "id": self.PLUGIN_ID + f".channelusers.{user+1}.role",
+                    "desc": f"Get moderator index {user+1} role",
                     "type": "text",
                     "value": f"{channel_users[user]['role']}",
-                    "parentGroup": "Channel Users",
+                    "parentGroup": "Moderators",
                 },
                 {
                     "id": self.PLUGIN_ID + f".channelusers.{user}.bio",
-                    "desc": f"Get channel user {channel_users[user]['user']['username']} bio",
+                    "desc": f"Get moderator index {user} bio",
                     "type": "text",
                     "value": f"{channel_users[user]['user']['bio']}",
-                    "parentGroup": "Channel Users",
+                    "parentGroup": "Moderators",
                 },
             ])
 
@@ -822,7 +878,7 @@ class KickTP(Plugin):
                     self.update_message(msg_data)
 
             case "App\\Events\\FollowersUpdatedForChannelOwner":
-                if msg_data["followed"] and msg["username"]:
+                if msg_data["followed"] and msg_data["username"]:
                     self.stateUpdate(self.TP_PLUGIN_STATES["latest_follower"]["id"], str(msg_data["username"]))
                 else:
                     self.stateUpdate(self.TP_PLUGIN_STATES["latest_unfollower"]["id"], str(msg_data["username"]))
@@ -846,6 +902,13 @@ class KickTP(Plugin):
                     self.poll_timer_thread.cancel()
                     self.poll_timer_thread = None
                 self.reset_poll()
+            
+            case "App\\Events\\StreamHostEvent":
+                if msg_data.get("host_username") and msg_data.get("number_viewers"):
+                    self.stateUpdate(self.TP_PLUGIN_STATES["latest_raid_name"]["id"], msg_data["host_username"])
+                    self.stateUpdate(self.TP_PLUGIN_STATES["latest_raid_viewers"]["id"], str(msg_data["number_viewers"]))
+                    self.stateUpdate(self.TP_PLUGIN_STATES["latest_raid_optional_message"]["id"], msg_data["optional_message"])
+
                 
 
     def update_state(self):
@@ -1048,6 +1111,14 @@ class KickTP(Plugin):
     def unban(self, data):
         if self.kick is not None and data["username"] != "":
             self.kick.unban(username=data["username"])
+
+    @Plugin.actionRegister(id="startRaid", category="chat", name="Start Raid", prefix=TP_PLUGIN_CATEGORIES["chat"]["name"],
+                            format="Start Raid/Host $[username]")
+    @Plugin.addDoc("Start Raid/Host specific user")
+    @Plugin.data(id="username", type="text", label="Username", default="")
+    def start_raid(self, data):
+        if self.kick is not None and data["username"] != "":
+            self.kick.host(username=data["username"])
 
     def onError(self, data):
         self.log.debug(f"Error: {data}", exc_info=True)

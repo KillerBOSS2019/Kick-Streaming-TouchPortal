@@ -11,6 +11,7 @@ class KickLogin(KickBase):
 
     def __init__(self, email, password) -> None:
         super().__init__(email, password)
+        self.retry = True
 
     def getTokenProvider(self):
         response = self.request(self.BASE_URL + "kick-token-provider", method="GET", header={"Content-Type": "application/x-www-form-urlencoded"})
@@ -46,7 +47,7 @@ class KickLogin(KickBase):
             tokenProvider["validFromFieldName"]: tokenProvider["encryptedValidFrom"],
         }
 
-        if authCode:
+        if authCode is not None:
             data["one_time_password"] = authCode
 
         url = self.BASE_URL + "mobile/login"
@@ -55,15 +56,18 @@ class KickLogin(KickBase):
         if response.status_code == 400:
             try:
                 jsonResponse = response.json()
+
+                if jsonResponse["2fa_required"]:
+                    if self.retry:
+                        self.retry = False
+
+                        kick2fa = Kick2FA()
+                        authCode = kick2fa.getPasscode()
+                        
+                        return self.login(authCode=authCode)
             except Exception as e:
                 print("failed to parse json response", e)
-                return False
 
-            if jsonResponse["2fa_required"]:
-                kick2fa = Kick2FA()
-                authCode = kick2fa.getPasscode()
-
-                return self.login(authCode=authCode)
         elif self.is_success_status_code(response.status_code):
             self.session.headers.update({"Authorization": f"Bearer {response.json()['token']}"})
             self._saveToken({"Authorization": response.json()['token'], "user": {"email": self.email, "password": self.password}})
@@ -72,6 +76,6 @@ class KickLogin(KickBase):
 
             return True
         
-        if data.get("one_time_password", None):
+        if "one_time_password" in data:
             messagebox.showwarning("Error", "Login failed")
         return False

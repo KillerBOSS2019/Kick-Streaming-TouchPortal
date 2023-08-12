@@ -16,14 +16,18 @@
         - [Kick - Poll](#com.github.killerboss2019.kicktp.pollstates)
         - [Kick - Socials](#com.github.killerboss2019.kicktp.socialsstates)
         - [Kick - Stream Info](#com.github.killerboss2019.kicktp.streaminfostates)
+        - [Kick - Raid](#com.github.killerboss2019.kicktp.raidstates)
     - [Events](#events)
         - [Kick - Chat](#com.github.killerboss2019.kicktp.chatevents)
   - [Bugs and Support](#bugs-and-suggestion)
   - [License](#license)
   
 # Description
+Kick integration for TouchPortal. It will allow you to control your stream and chat from TouchPortal. It will also allow you to display information about your stream and chat in TouchPortal.
 
-This documentation generated for Kick-Streaming V111 with [Python TouchPortal SDK](https://github.com/KillerBOSS2019/TouchPortal-API).
+# Initial Setup
+1. Download and install the plugin from [here](https://github.com/KillerBOSS2019/Kick-Streaming-TouchPortal/releases)
+2. Open TouchPortal and go to plugin settings. in the plugin settings, you will need to enter your Kick email and password. This is required to login to Kick and get the required information.
 
 ## Settings Overview
 | Read-only | Type | Default Value |
@@ -129,7 +133,7 @@ Default: <b>1</b></li>
 <br>
 
 ## States
-<details id='com.github.killerboss2019.kicktp.mainstates'><summary><b>Category:</b> Kick - Profile <small><ins>(Click to expand)</ins></small></summary>
+<details open id='com.github.killerboss2019.kicktp.mainstates'><summary><b>Category:</b> Kick - Profile <small><ins>(Click to expand)</ins></small></summary>
 
 
 | Id | Description | DefaultValue | parentGroup |
@@ -209,6 +213,16 @@ Default: <b>1</b></li>
 | .state.is_poll_running | Kick is poll running | False | Kick poll |
 </details>
 
+<details id='com.github.killerboss2019.kicktp.raidstates'><summary><b>Category:</b> Kick - Raid <small><ins>(Click to expand)</ins></small></summary>
+
+
+| Id | Description | DefaultValue | parentGroup |
+| --- | --- | --- | --- |
+| .state.latest_raid_name | Kick latest raid name | None | Kick raid |
+| .state.latest_raid_viewers | Kick latest raid viewers count | 0 | Kick raid |
+| .state.latest_raid_optional_message | Kick latest raid optional message | None | Kick raid |
+</details>
+
 <br>
 
 ## Events
@@ -218,17 +232,26 @@ Default: <b>1</b></li>
 <td></tr>
 <td></tr>
 <td></tr>
-<details open id='com.github.killerboss2019.kicktp.chatevents'><summary><b>Category: </b>Kick - Chat <small><ins>(Click to expand)</ins></small></summary>
+<td></tr>
+<td></tr>
+<details id='com.github.killerboss2019.kicktp.chatevents'><summary><b>Category: </b>Kick - Chat <small><ins>(Click to expand)</ins></small></summary>
 
 <table>
 <tr valign='buttom'><th>Id</th><th>Name</th><th nowrap>Evaluated State Id</th><th>Format</th><th>Type</th><th>Choice(s)</th></tr>
 <tr valign='top'><td>.event.onSlowMode</td><td>On slow mode</td><td>.state.slow_mode_enabled</td><td>When slow mode is $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td><tr valign='top'><td>.event.onFollowerMode</td><td>On follower mode</td><td>.state.follower_mode_enabled</td><td>When follower mode is $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td><tr valign='top'><td>.event.onEmoteOnlyMode</td><td>On emote only mode</td><td>.state.emote_only_mode_enabled</td><td>When emote only mode is $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td><tr valign='top'><td>.event.onSubMode</td><td>On sub mode</td><td>.state.sub_mode_enabled</td><td>When sub mode is $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td><tr valign='top'><td>.event.onAdvAntibot</td><td>On advanced antibot</td><td>.state.adv_antibot_enabled</td><td>When advanced antibot is $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td></table></details>
-<br>
+<details id='com.github.killerboss2019.kicktp.pollevents'><summary><b>Category: </b>Kick - Poll <small><ins>(Click to expand)</ins></small></summary>
 
-# Bugs and Suggestion
-Open an issue on github or join offical [TouchPortal Discord](https://discord.gg/MgxQb8r) for support.
+<table>
+<tr valign='buttom'><th>Id</th><th>Name</th><th nowrap>Evaluated State Id</th><th>Format</th><th>Type</th><th>Choice(s)</th></tr>
+<tr valign='top'><td>.event.onPullRunning</td><td>On poll</td><td>.state.is_poll_running</td><td>When poll is started $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td></table></details>
+<details id='com.github.killerboss2019.kicktp.streaminfoevents'><summary><b>Category: </b>Kick - Stream Info <small><ins>(Click to expand)</ins></small></summary>
+
+<table>
+<tr valign='buttom'><th>Id</th><th>Name</th><th nowrap>Evaluated State Id</th><th>Format</th><th>Type</th><th>Choice(s)</th></tr>
+<tr valign='top'><td>.event.onStreamStart</td><td>On stream start</td><td>.state.streaming_status</td><td>When stream is started $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td></table></details>
+<br>
 
 
 # License
-This plugin is licensed under the [GPL 3.0 License] - see the [LICENSE](LICENSE) file for more information.
+This plugin is licensed under the GPL 3.0 License - see the [LICENSE](LICENSE) file for more information.
 

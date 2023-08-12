@@ -125,9 +125,9 @@ class Kick(KickLogin):
     def create_pull(self, question, options:list[str], duration:int, display_result_duration:int):
         url = self.BASE_URL + "api/v2/channels/" + self.username + "/polls"
         data = {
-            "title": "Sample Quiz",
-            "options": ["Test", "Test2"],
-            "duration": 30,
+            "title": question,
+            "options": options,
+            "duration": duration,
             "result_display_duration": 15
         }
         header = {
@@ -167,6 +167,16 @@ class Kick(KickLogin):
     def unban(self, username:str):
         url = self.BASE_URL + "api/v2/channels/" + self.username + "/bans/" + username
         response = self.request(url, method="DELETE")
+        return response
+    
+    def host(self, username:str):
+        url = self.BASE_URL + "api/v2/channels/" + self.username + "/chat-commands"
+        data = {"command": "host", "parameter": username}
+        header = {
+            "Accept": "application/json, text/plain, */*",
+            "Content-Type": "application/json"
+        }
+        response = self.request(url, data=data, method="POST", header=header)
         return response
     
     def set_stream_title(self):
