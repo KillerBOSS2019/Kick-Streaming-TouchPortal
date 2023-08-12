@@ -10,7 +10,7 @@ from kickapi import Kick, KickWebSockets, KickSaveSession
 from Plugin import Plugin
 
 class KickTP(Plugin):
-    __version__ = 10107
+    __version__ = 10108
 
     PLUGIN_ID = "com.github.killerboss2019.kicktp"
 
@@ -20,6 +20,8 @@ class KickTP(Plugin):
         "name": "Kick-Streaming",
         "id": PLUGIN_ID,
         "plugin_start_cmd_windows": "%TP_PLUGIN_FOLDER%kick\\tp_kick.exe",
+        'plugin_start_cmd_linux': "sh %TP_PLUGIN_FOLDER%TPSpeedTest\\start.sh tp_kick",
+        'plugin_start_cmd_mac': "sh %TP_PLUGIN_FOLDER%TPSpeedTest\\start.sh tp_kick",
         "configuration": {
             "colorDark": "#15843e",
             "colorLight": "#1ca950"
@@ -530,7 +532,7 @@ class KickTP(Plugin):
             "category": "chat"
         },
         "onPollRunning": {
-            "id": PLUGIN_ID + ".event.onPullRunning",
+            "id": PLUGIN_ID + ".event.onPollRunning",
             "name": "On poll",
             "format": "When poll is started $val",
             "type": "communicate",
@@ -1062,7 +1064,7 @@ class KickTP(Plugin):
 
             # print(question, options, duration, result_duration)
 
-            self.kick.create_pull(question, options, duration, result_duration)
+            self.kick.create_poll(question, options, duration, result_duration)
 
     @Plugin.actionRegister(id="VotePoll", category="chat", name="Vote Poll", prefix="",
                            format="Vote Poll: $[option]")

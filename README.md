@@ -31,33 +31,33 @@ Kick integration for TouchPortal. It will allow you to control your stream and c
 2. Open TouchPortal and go to plugin settings. in the plugin settings, you will need to enter your Kick email and password. This is required to login to Kick and get the required information.
 
 ## Settings Overview
-| Read-only | Type | Default Value |
-| --- | --- | --- |
-| False | text |  |
+| Name | Read-only | Type | Default Value |
+| --- | --- | --- | --- |
+| Email | False | text |  |
 
 Email used to login to kick
 
-| Read-only | Type | Default Value |
-| --- | --- | --- |
-| False | text |  |
+| Name | Read-only | Type | Default Value |
+| --- | --- | --- | --- |
+| Password | False | text |  |
 
 Password used to login to kick
 
-| Read-only | Type | Default Value |
-| --- | --- | --- |
-| False | text | 5 |
+| Name | Read-only | Type | Default Value |
+| --- | --- | --- | --- |
+| chat buffer | False | text | 5 |
 
 Number of states will be created to show chat history. eg 5 will show 5 latest messages
 
-| Read-only | Type | Default Value |
-| --- | --- | --- |
-| False | text | DEBUG |
+| Name | Read-only | Type | Default Value |
+| --- | --- | --- | --- |
+| logging | False | text | DEBUG |
 
 Debugging level. eg DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-| Read-only | Type | Default Value |
-| --- | --- | --- |
-| False | text | %I:%M:%S %p |
+| Name | Read-only | Type | Default Value |
+| --- | --- | --- | --- |
+| Message Time format | False | text | %I:%M:%S %p |
 
 Time format for chat message. help with formatting can be found here https://strftime.org/
 
@@ -237,7 +237,7 @@ Default: <b>1</b></li>
 
 <table>
 <tr valign='buttom'><th>Id</th><th>Name</th><th nowrap>Evaluated State Id</th><th>Format</th><th>Type</th><th>Choice(s)</th></tr>
-<tr valign='top'><td>.event.onPullRunning</td><td>On poll</td><td>.state.is_poll_running</td><td>When poll is started $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td></table></details>
+<tr valign='top'><td>.event.onPollRunning</td><td>On poll</td><td>.state.is_poll_running</td><td>When poll is started $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td></table></details>
 <details id='com.github.killerboss2019.kicktp.streaminfoevents'><summary><b>Category: </b>Kick - Stream Info <small><ins>(Click to expand)</ins></small></summary>
 
 <table>

@@ -8,17 +8,13 @@ PLUGIN_EXE_ICON = r"kick.png"
 
 PLUGIN_ENTRY = PLUGIN_MAIN
 
-PLUGIN_ENTRY_INDENT = 4
-
 PLUGIN_ROOT = "kick"
 
 PLUGIN_ICON = r"kick.png"
 
-OUTPUT_PATH = r"./"
+PLUGIN_VERSION = "1.1.8"
 
-PLUGIN_VERSION = "1.1.7"
-
-ADDITIONAL_FILES = []
+PLUGIN_ENTRY_INDENT = 2
 
 ADDITIONAL_PYINSTALLER_ARGS = [
     "--log-level=WARN",
@@ -26,7 +22,9 @@ ADDITIONAL_PYINSTALLER_ARGS = [
     "--collect-all=curl_cffi"
 ]
 
-ADDITIONAL_TPPSDK_ARGS = []
+ADDITIONAL_FILES = [
+    "start.sh"
+]
 
 if __name__ == "__main__":
     tppbuild.runBuild()

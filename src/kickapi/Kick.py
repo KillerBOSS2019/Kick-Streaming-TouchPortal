@@ -122,7 +122,7 @@ class Kick(KickLogin):
         response = self.request(url, data=data, method="POST")
         return response
     
-    def create_pull(self, question, options:list[str], duration:int, display_result_duration:int):
+    def create_poll(self, question, options:list[str], duration:int, display_result_duration:int):
         url = self.BASE_URL + "api/v2/channels/" + self.username + "/polls"
         data = {
             "title": question,
