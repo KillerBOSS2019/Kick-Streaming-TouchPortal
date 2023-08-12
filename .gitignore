@@ -155,5 +155,5 @@ cython_debug/
 *.tp
 *.tp
 *.json
-*.txt
+token.txt
 *.exe
