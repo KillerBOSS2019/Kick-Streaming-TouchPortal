@@ -19,6 +19,7 @@
         - [Kick - Raid](#com.github.killerboss2019.kicktp.raidstates)
     - [Events](#events)
         - [Kick - Chat](#com.github.killerboss2019.kicktp.chatevents)
+  - [Acknowledgments](#acknowledgments)
   - [Bugs and Support](#bugs-and-suggestion)
   - [License](#license)
   
@@ -251,6 +252,11 @@ Default: <b>1</b></li>
 <tr valign='top'><td>.event.onStreamStart</td><td>On stream start</td><td>.state.streaming_status</td><td>When stream is started $val</td><td>choice</td><td><ul><li>True</li><li>False</li></ul></td></table></details>
 <br>
 
+# Acknowledgments
+Thank you [@Buttuns](https://kick.com/shmah) for helping me test every part of the plugin and feedback, Also thank [@Gitago](https://github.com/gitagogaming) for helping me creating the Banner and feature image. Lastly thank [TouchPortal](https://www.touch-portal.com/) for creating amazing software.
+
+# Bugs and Suggestion
+Open an issue on github or join offical [TouchPortal Discord](https://discord.gg/touchportal) for support.
 
 # License
 This plugin is licensed under the GPL 3.0 License - see the [LICENSE](LICENSE) file for more information.
