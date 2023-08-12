@@ -228,14 +228,7 @@ Default: <b>1</b></li>
 
 ## Events
 
-<td></tr>
-<td></tr>
-<td></tr>
-<td></tr>
-<td></tr>
-<td></tr>
-<td></tr>
-<details id='com.github.killerboss2019.kicktp.chatevents'><summary><b>Category: </b>Kick - Chat <small><ins>(Click to expand)</ins></small></summary>
+<details open id='com.github.killerboss2019.kicktp.chatevents'><summary><b>Category: </b>Kick - Chat <small><ins>(Click to expand)</ins></small></summary>
 
 <table>
 <tr valign='buttom'><th>Id</th><th>Name</th><th nowrap>Evaluated State Id</th><th>Format</th><th>Type</th><th>Choice(s)</th></tr>
