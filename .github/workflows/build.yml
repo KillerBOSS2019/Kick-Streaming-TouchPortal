@@ -30,7 +30,7 @@ jobs:
           python3 ./src/build.py
           ls ./src
       - name: uploading tpp for ${{ matrix.os}}
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@2.7.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: "./src/*.tpp"
