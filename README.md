@@ -28,7 +28,10 @@ Kick integration for TouchPortal. It will allow you to control your stream and c
 
 # Initial Setup
 1. Download and install the plugin from [here](https://github.com/KillerBOSS2019/Kick-Streaming-TouchPortal/releases)
-2. Open TouchPortal and go to plugin settings. in the plugin settings, you will need to enter your Kick email and password. This is required to login to Kick and get the required information.
+2. Open TouchPortal and go to plugin settings. in the plugin settings, you will need to enter your Kick email and password. This is required for the plugin to work.
+3. Once you have entered your email and password, you will need to click stop and start the plugin.
+4. Once plugin is started again it'll either prompt you to enter 2FA code if you have one or it'll just log you in.
+
 
 ## Settings Overview
 | Name | Read-only | Type | Default Value |
