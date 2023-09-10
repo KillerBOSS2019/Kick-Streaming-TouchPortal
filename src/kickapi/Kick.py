@@ -35,7 +35,7 @@ class Kick(KickLogin):
     def setData(self):
         user_info = self.isLoggedin()
         if (user_info):
-            self.username = user_info["username"]
+            self.username = user_info["streamer_channel"]["slug"]
     
     def getUserData(self):
         url = self.BASE_URL + "api/v2/channels/" + self.username
