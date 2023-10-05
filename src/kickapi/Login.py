@@ -69,6 +69,7 @@ class KickLogin(KickBase):
                 print("failed to parse json response", e)
 
         elif self.is_success_status_code(response.status_code):
+            print(response.status_code, response.json())
             self.session.headers.update({"Authorization": f"Bearer {response.json()['token']}"})
             self._saveToken({"Authorization": response.json()['token'], "user": {"email": self.email, "password": self.password}})
             if data.get("one_time_password", None):

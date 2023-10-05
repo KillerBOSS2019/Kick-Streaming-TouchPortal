@@ -997,7 +997,7 @@ class KickTP(Plugin):
     @Plugin.settingsRegister(name="logging", type="text", default="DEBUG")
     @Plugin.addDoc("Debugging level. eg DEBUG, INFO, WARNING, ERROR, CRITICAL")
     def set_logging(self, value):
-        # self.setLogLevel(value)
+        self.setLogLevel(value)
         ...
 
     @Plugin.settingsRegister(name="Message Time format", type="text", default="%I:%M:%S %p")
