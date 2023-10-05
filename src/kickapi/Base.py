@@ -74,7 +74,7 @@ class KickBase(KickSaveSession):
         if 200 <= data.status_code < 300:
             # Update header with response header
             self.set_headers(data.headers)
-            logger.info(f"Request <-- method:{method} url:{url} status_code:{data.status_code}")
+            logger.info(f"Request <-- method:{method} url:{url} status_code:{data.status_code} debug: {data.text}")
         else:
             logger.info(f"Request <-- method:{method} url:{url} status_code:{data.status_code} error:{data.text}")
 
