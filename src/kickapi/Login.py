@@ -53,23 +53,21 @@ class KickLogin(KickBase):
         url = self.BASE_URL + "mobile/login"
         response = self.request(url, method="POST", data=data)
 
-        if response.status_code == 400:
-            try:
-                jsonResponse = response.json()
+        try:
+            jsonResponse = response.json()
 
-                if jsonResponse["2fa_required"]:
-                    if self.retry:
-                        self.retry = False
+            if jsonResponse["2fa_required"]:
+                if self.retry:
+                    self.retry = False
 
-                        kick2fa = Kick2FA()
-                        authCode = kick2fa.getPasscode()
-                        
-                        return self.login(authCode=authCode)
-            except Exception as e:
-                print("failed to parse json response", e)
+                    kick2fa = Kick2FA()
+                    authCode = kick2fa.getPasscode()
+                    
+                    return self.login(authCode=authCode)
+        except Exception as e:
+            logger.info(f"Error has occured: {e}")
 
-        elif self.is_success_status_code(response.status_code):
-            print(response.status_code, response.json())
+        if self.is_success_status_code(response.status_code):
             self.session.headers.update({"Authorization": f"Bearer {response.json()['token']}"})
             self._saveToken({"Authorization": response.json()['token'], "user": {"email": self.email, "password": self.password}})
             if data.get("one_time_password", None):
