@@ -994,7 +994,7 @@ class KickTP(Plugin):
     def setting_chat_buffer(self, value):
         self.chat_length = int(value)
 
-    @Plugin.settingsRegister(name="logging", type="text", default="DEBUG")
+    @Plugin.settingsRegister(name="logging", type="text", default="INFO")
     @Plugin.addDoc("Debugging level. eg DEBUG, INFO, WARNING, ERROR, CRITICAL")
     def set_logging(self, value):
         self.setLogLevel(value)
