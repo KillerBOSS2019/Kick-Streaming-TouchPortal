@@ -5,7 +5,7 @@ from TouchPortalAPI.logger import Logger
 logger = Logger(__name__)
 
 class KickWebSockets():
-    WS_ADDRESS = "wss://ws-us2.pusher.com/app/eb1d5f283081a78b932c?protocol=7&client=js&version=7.6.0&flash=false"
+    WS_ADDRESS = "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=7.6.0&flash=false"
 
     def __init__(self, onMessage, kick) -> None:
         self.ws = websocket.WebSocketApp(self.WS_ADDRESS, on_message=onMessage, on_close=self.on_close, on_error=self.onError)

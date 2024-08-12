@@ -20,8 +20,8 @@ class KickTP(Plugin):
         "name": "Kick-Streaming",
         "id": PLUGIN_ID,
         "plugin_start_cmd_windows": "%TP_PLUGIN_FOLDER%kick\\tp_kick.exe",
-        'plugin_start_cmd_linux': "sh %TP_PLUGIN_FOLDER%TPSpeedTest\\start.sh tp_kick",
-        'plugin_start_cmd_mac': "sh %TP_PLUGIN_FOLDER%TPSpeedTest\\start.sh tp_kick",
+        'plugin_start_cmd_linux': "sh %TP_PLUGIN_FOLDER%kick\\start.sh tp_kick",
+        'plugin_start_cmd_mac': "sh %TP_PLUGIN_FOLDER%kick\\start.sh tp_kick",
         "configuration": {
             "colorDark": "#15843e",
             "colorLight": "#1ca950"
@@ -956,7 +956,6 @@ class KickTP(Plugin):
         self.state_usedefault()
         email = data["settings"][0]["email"]
         password = data["settings"][1]["password"]
-
         if email and password:
             is_different = self.is_diffent_account(email, password)
             if is_different:
@@ -976,6 +975,9 @@ class KickTP(Plugin):
                 self.kick_ws.run()
             else:
                 self.disconnect() # Don't want the plugin to run if not logged in
+        else:
+            self.log.error("Email or password not set. Please set email and password in settings")
+            self.disconnect()
 
     @Plugin.settingsRegister(name="email", type="text")
     @Plugin.addDoc("Email used to login to kick")
