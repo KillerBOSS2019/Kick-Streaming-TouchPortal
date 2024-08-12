@@ -10,7 +10,7 @@ from kickapi import Kick, KickWebSockets, KickSaveSession
 from Plugin import Plugin
 
 class KickTP(Plugin):
-    __version__ = 10109
+    __version__ = 10200
 
     PLUGIN_ID = "com.github.killerboss2019.kicktp"
 
